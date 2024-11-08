@@ -4,6 +4,8 @@ This is a simple markdown viewer written in Vala with Gtk4.
 
 ## Features
 
+---
+
 
 | Syntax      | Description | Test Text     |
 | :---        |    :----:   |          ---: |
@@ -20,7 +22,7 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Links
 - [x] Images
 - [x] Tables
-- [ ] Horizontal rules
+- [x] Horizontal rules
 - [ ] Footnotes
 - [ ] Task Lists
 - [ ] Highlight

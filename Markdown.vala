@@ -104,6 +104,19 @@ public class MarkDown : Gtk.Box {
 			if (is_nl == false)
 				continue;
 
+			// Horizontal line
+			if (text_md[i] == '*' || text_md[i] == '-' || text_md[i] == '_') {
+				char c = text_md[i];
+				int n = 0;
+				while (text_md[n + i] == c)
+					++n;
+				if (n >= 3 && text_md[i + n] == '\n') {
+					append_text (text_md[start:i]);
+					append_separator();
+					i += n;
+					start = i;
+				}
+			}
 			// image parsing
 			if (text_md[i] == '!') {
 				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
@@ -161,6 +174,16 @@ public class MarkDown : Gtk.Box {
 		}
 
 		append_text (text_md.offset(start));
+	}
+
+	private void append_separator () {
+		var separator = new Gtk.Separator (Orientation.HORIZONTAL) {
+			halign = Align.FILL,
+			valign = Align.FILL,
+			hexpand = true,
+			vexpand = false,
+		};
+		box.append (separator);
 	}
 
 	private void append_blockquotes (string content) throws Error {
