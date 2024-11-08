@@ -10,42 +10,15 @@ public class MarkDown : Gtk.Box {
 	private Regex		regex_task;
 	private Regex		regex_blockquotes;
 	private Box			general_box;
-	private Viewport	viewport;
-
-	private ScrolledWindow scrolled = new ScrolledWindow () {
-		hexpand = true,
-		vexpand = true,
-	};
-
-	public int min_width {
-		set {
-			scrolled.min_content_width = value; 
-		}
-		get {
-			return scrolled.min_content_width;
-		}
-	}
-	
-	public int min_height {
-		set {
-			scrolled.min_content_height = value;
-		}
-		get {
-			return scrolled.min_content_height;
-		}
-	}
 
 	/** Constructor */
 	construct {
 		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
 		box = general_box;
-		viewport = new Viewport (null, null);
 		var provider = new Gtk.CssProvider ();
 		provider.load_from_resource ("/style.css");
 		StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, STYLE_PROVIDER_PRIORITY_APPLICATION);
-		base.append(scrolled);
-		scrolled.child = (viewport);
-		viewport.child = box;
+		base.append(general_box);
 		try {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
 			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
@@ -93,11 +66,11 @@ public class MarkDown : Gtk.Box {
 	*/
 	private void parse (owned string text_md) throws Error {
 		MatchInfo match_info;
-
+		int start_pos, end_pos;
 		int start = 0;
 
+
 		for (int i = 0; text_md[i] != '\0'; ++i) {
-			int start_pos, end_pos;
 			bool is_nl;
 			if (i == 0)
 				is_nl = true;
@@ -164,7 +137,9 @@ public class MarkDown : Gtk.Box {
 			}
 			// - to bullet list
 			if (text_md[i] == '-' && text_md[i + 1] == ' ') {
-				if (start != i)
+				if (start == 0)
+					append_text (text_md[start:i]);
+				else if (start != i)
 					append_text (text_md[start+1:i]);
 				int nl = text_md.offset(i).index_of_char ('\n');
 				var str = "• " + simple_parse_html(text_md.offset(i)[2:nl]);
@@ -282,6 +257,7 @@ public class MarkDown : Gtk.Box {
 	public signal bool activate_link (string uri);
 
 	private void append_text (string text) throws Error {
+		print ("text: [%s]\n", text);
 		text = simple_parse_html (text);
 		var label = new Gtk.Label (text) {
 			halign = Align.START,
