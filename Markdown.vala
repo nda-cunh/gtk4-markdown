@@ -395,6 +395,7 @@ private string simple_parse_html (string text) throws Error {
 	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
 	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
 	text = parse_html ("[*]{1}([^*]+)[*]{1}", "<i>", "</i>", text);
+		text = parse_html("[=]{2}([^=]+)[=]{2}", """<span bgcolor="#383006">""", "</span>", text);
 	// LINK
 	text = parse_link(text);
 	// HEADER

@@ -5,6 +5,8 @@ This is a simple markdown viewer written in Vala with Gtk4.
 
 ## Features
 
+I need to highlight these ==very important words==.
+
 
 ### Basic Syntax 
 - [x] Headings
@@ -21,8 +23,8 @@ This is a simple markdown viewer written in Vala with Gtk4.
 ### Extended Syntax
 - [x] Tables
 - [x] Task Lists
+- [x] Highlight
 - [ ] Footnotes
-- [ ] Highlight
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs
 - [ ] Definition Lists
