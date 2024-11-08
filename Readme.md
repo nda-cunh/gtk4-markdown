@@ -7,11 +7,6 @@ This is a simple markdown viewer written in Vala with Gtk4.
 ---
 
 
-| Syntax      | Description | Test Text     |
-| :---        |    :----:   |          ---: |
-| Header      | Title       | Here's this   |
-| Paragraph   | Text        | And more      |
-
 - [x] Headings
 - [x] Paragraphs
 - [x] Emphasis
@@ -23,8 +18,8 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Images
 - [x] Tables
 - [x] Horizontal rules
+- [x] Task Lists
 - [ ] Footnotes
-- [ ] Task Lists
 - [ ] Highlight
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs
@@ -35,4 +30,4 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [ ] Automatic URL Linking
 - [ ] Emoji
 
-
+yep hello world

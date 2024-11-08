@@ -7,6 +7,7 @@ public class MarkDown : Gtk.Box {
 	private Regex		regex_image;
 	private Regex		regex_table;
 	private Regex		regex_code;
+	private Regex		regex_task;
 	private Regex		regex_blockquotes;
 	private Box			general_box;
 	private Viewport	viewport;
@@ -49,6 +50,7 @@ public class MarkDown : Gtk.Box {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
 			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
 			regex_code = new Regex("```(?P<lang>[a-zA-Z0-9]*)?\n(?P<code>.+?)?```", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+			regex_task = new Regex("""^[-]\s[[][( |x|X)][]]\s*(?P<name>.*?)$""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
 			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
 		}
 		catch (Error e) {
@@ -104,6 +106,18 @@ public class MarkDown : Gtk.Box {
 			if (is_nl == false)
 				continue;
 
+			// Task ckeckbox parsing
+			if (text_md[i] == '-') {
+				if (regex_task.match(text_md.offset(i), 0, out match_info))
+				{
+					match_info.fetch_pos (0, out start_pos, out end_pos);
+					append_text (text_md[start:i]);
+					var name = match_info.fetch_named("name");
+					append_checkbox (text_md[i + 3], name);
+					i += end_pos;
+					start = i + 1;
+				}
+			}
 			// Horizontal line
 			if (text_md[i] == '*' || text_md[i] == '-' || text_md[i] == '_') {
 				char c = text_md[i];
@@ -174,6 +188,19 @@ public class MarkDown : Gtk.Box {
 		}
 
 		append_text (text_md.offset(start));
+	}
+
+	private void append_checkbox (char c, string name) {
+		var check = new Gtk.CheckButton.with_label (name) {
+			halign = Align.START,
+			valign = Align.FILL,
+			hexpand = false,
+			vexpand = false,
+			can_focus = false,
+		};
+		if (c == 'x' || c == 'X')
+			check.active = true;
+		box.append (check);
 	}
 
 	private void append_separator () {
@@ -365,12 +392,12 @@ private string simple_parse_html (string text) throws Error {
 	// LINK
 	text = parse_link(text);
 	// HEADER
-	text = parse_html("^[#]{1} (.*?)$$", """<span size="400%">""", "</span>", text);
-	text = parse_html("^[#]{2} (.*?)$$", """<span size="350%">""", "</span>", text);
-	text = parse_html("^[#]{3} (.*?)$$", """<span size="300%">""", "</span>", text);
-	text = parse_html("^[#]{4} (.*?)$$", """<span size="250%">""", "</span>", text);
-	text = parse_html("^[#]{5} (.*?)$$", """<span size="200%">""", "</span>", text);
-	text = parse_html("^[#]{6} (.*?)$$", """<span size="150%">""", "</span>", text);
+	text = parse_html("^[#]{1} (.*?)$$", """<span size="300%">""", "</span>", text);
+	text = parse_html("^[#]{2} (.*?)$$", """<span size="200%">""", "</span>", text);
+	text = parse_html("^[#]{3} (.*?)$$", """<span size="150%">""", "</span>", text);
+	text = parse_html("^[#]{4} (.*?)$$", """<span size="125%">""", "</span>", text);
+	text = parse_html("^[#]{5} (.*?)$$", """<span size="110%">""", "</span>", text);
+	text = parse_html("^[#]{6} (.*?)$$", """<span size="85%">""", "</span>", text);
 	// simple code
 	text = parse_html("[`]([^*]+)[`][^`]", """<span bgcolor="#292443">""", "</span>", text);
 	return text;
