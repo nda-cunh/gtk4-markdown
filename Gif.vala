@@ -1,21 +1,22 @@
 using Gtk;
+using Gdk;
 using Cairo;
 
-public class Gif: Gtk.DrawingArea {
+public class Gif : DrawingArea {
 	construct {
 		hexpand = true;
 		vexpand = true;
 	}
 	
-	private Gdk.Pixbuf pixbuf;
-	private Gdk.PixbufAnimation anim;
-	private Gdk.PixbufAnimationIter iter;
+	private Pixbuf pixbuf;
+	private PixbufAnimation anim;
+	private PixbufAnimationIter iter;
 
 	public int width {private set; get;}
 	public int height {private set; get;}
 
 	public Gif (string location) throws Error {
-		anim = new Gdk.PixbufAnimation.from_file (location);
+		anim = new PixbufAnimation.from_file (location);
 		pixbuf = anim.get_static_image ();
 		width = anim.get_width ();
 		height = anim.get_height ();
