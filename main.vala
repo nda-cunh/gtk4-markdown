@@ -14,8 +14,6 @@ public class ExampleApp : Gtk.Application {
 
 				margin_start = 15,
 				margin_top = 15,
-				min_height = 800,
-				min_width = 800,
 			};
 
 			foreach (var cmd in cmds[1:]) {

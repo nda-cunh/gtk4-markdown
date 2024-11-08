@@ -257,7 +257,6 @@ public class MarkDown : Gtk.Box {
 	public signal bool activate_link (string uri);
 
 	private void append_text (string text) throws Error {
-		print ("text: [%s]\n", text);
 		text = simple_parse_html (text);
 		var label = new Gtk.Label (text) {
 			halign = Align.START,
