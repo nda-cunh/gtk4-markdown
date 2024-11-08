@@ -165,11 +165,11 @@ public class MarkDown : Gtk.Box {
 			// - to bullet list
 			if (text_md[i] == '-' && text_md[i + 1] == ' ') {
 				if (start != i)
-					append_text (text_md[start:i]);
+					append_text (text_md[start+1:i]);
 				int nl = text_md.offset(i).index_of_char ('\n');
 				var str = "• " + simple_parse_html(text_md.offset(i)[2:nl]);
 				append_text (str);
-				start = i + 1 + nl;
+				start = i + 0 + nl;
 				i = start;
 			}
 
