@@ -1,0 +1,52 @@
+
+.code_box {
+	background-color: #292929;
+	border : solid 1px #787063;
+}
+.code_box textview {
+	background-color: #292929;
+	padding-top: 6px;
+	padding-left : 10px;
+}
+.line_bar {
+	background-color: #292443;
+	color: white;
+	padding-right: 10px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	border: 0px;
+}
+
+.table {
+	border: solid 1px #787063;
+}
+
+.table .table_label {
+	padding-right: 10px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	background-color: #202224;
+	border: solid 0.5px #787063;
+}
+
+.table .header_table {
+	background-color: #404040;
+	color: white;
+	font-weight: bold;
+	padding-right: 20px;
+	padding-left: 20px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	border: solid 1px #787063;
+}
+
+.blockquotes {
+	background-color: #292929;
+	border: solid 1px #787063;
+	padding-right: 10px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
