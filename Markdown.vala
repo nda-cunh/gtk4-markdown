@@ -50,7 +50,7 @@ public class MarkDown : Gtk.Box {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
 			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
 			regex_code = new Regex("```(?P<lang>[a-zA-Z0-9]*)?\n(?P<code>.+?)?```", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
-			regex_task = new Regex("""^[-]\s[[][( |x|X)][]]\s*(?P<name>.*?)$""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+			regex_task = new Regex("""^-\s\[(X|x| )\]\s*(?<name>.*)""");
 			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
 		}
 		catch (Error e) {
@@ -106,16 +106,18 @@ public class MarkDown : Gtk.Box {
 			if (is_nl == false)
 				continue;
 
-			// Task ckeckbox parsing
+			// Task checkbox parsing
 			if (text_md[i] == '-') {
 				if (regex_task.match(text_md.offset(i), 0, out match_info))
 				{
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (text_md[start:i]);
+					if (start != i)
+						append_text (text_md[start:i]);
 					var name = match_info.fetch_named("name");
 					append_checkbox (text_md[i + 3], name);
 					i += end_pos;
 					start = i + 1;
+					continue;
 				}
 			}
 			// Horizontal line
@@ -135,7 +137,8 @@ public class MarkDown : Gtk.Box {
 			if (text_md[i] == '!') {
 				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (text_md[start:i]);
+					if (start != i)
+						append_text (text_md[start:i]);
 
 					var name = match_info.fetch_named("name");
 					var url = match_info.fetch_named("url");
@@ -151,7 +154,8 @@ public class MarkDown : Gtk.Box {
 			else if (text_md[i] == '|') {
 				if (regex_table.match(text_md.offset(i - 1), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (text_md[start:i]);
+					if (start != i)
+						append_text (text_md[start:i]);
 					string table = text_md.offset(i)[0:end_pos - 1];
 					append_table (table);
 					i += end_pos - 1;
@@ -166,7 +170,8 @@ public class MarkDown : Gtk.Box {
 			if (text_md[i] == '>') {
 				if (regex_blockquotes.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (text_md[start:i]);
+					if (start != i)
+						append_text (text_md[start:i]);
 					var blockquotes = match_info.fetch (0);
 					append_blockquotes(blockquotes);
 					i += end_pos;
@@ -177,7 +182,8 @@ public class MarkDown : Gtk.Box {
 			if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
 				if (regex_code.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (text_md[start:i]);
+					if (start != i)
+						append_text (text_md[start:i]);
 					var lang = match_info.fetch_named("lang") ?? "none";
 					var code = match_info.fetch_named("code");
 					append_textcode(lang, code);
