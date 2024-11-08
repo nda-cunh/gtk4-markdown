@@ -163,8 +163,14 @@ public class MarkDown : Gtk.Box {
 				}
 			}
 			// - to bullet list
-			if (text_md[i] == '-') {
-				text_md = "%s%s%s".printf(text_md[0:i], "•", text_md.offset(i+1));
+			if (text_md[i] == '-' && text_md[i + 1] == ' ') {
+				if (start != i)
+					append_text (text_md[start:i]);
+				int nl = text_md.offset(i).index_of_char ('\n');
+				var str = "• " + simple_parse_html(text_md.offset(i)[2:nl]);
+				append_text (str);
+				start = i + 1 + nl;
+				i = start;
 			}
 
 			if (text_md[i] == '>') {
