@@ -3,9 +3,9 @@ project('markdown', ['c', 'vala'], default_options : ['warning_level=3', 'optimi
 # Add Gressource file (style.css)
 gnome = import('gnome')
 asresources = gnome.compile_resources(
-  'as-resources', 'gresource.xml',
+  'gtk4_markdown_resources', 'gresource.xml',
   source_dir: '.',
-  c_name: 'as')
+  c_name: 'gtk4_markdown_resource')
 
 # Dependencies for the library
 markdown_dep = [
