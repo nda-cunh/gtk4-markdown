@@ -272,6 +272,9 @@ public class MarkDown : Gtk.Box {
 		}
 	}
 
+		
+	public signal bool activate_link (string uri);
+
 	private void append_text (string text) throws Error {
 		text = simple_parse_html (text);
 		var label = new Gtk.Label (text) {
@@ -282,6 +285,17 @@ public class MarkDown : Gtk.Box {
 			vexpand = false,
 			can_focus = false
 		};
+		label.activate_link.connect ((uri) => {
+			if (this.activate_link(uri) == false) {
+				try {
+					Process.spawn_command_line_async("xdg-open " + uri);
+				}
+				catch (Error e) {
+					print ("Error: %s\n", e.message);
+				}
+			}
+			return true;
+		});
 
 		box.append (label);
 	}
@@ -395,7 +409,7 @@ private string simple_parse_html (string text) throws Error {
 	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
 	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
 	text = parse_html ("[*]{1}([^*]+)[*]{1}", "<i>", "</i>", text);
-		text = parse_html("[=]{2}([^=]+)[=]{2}", """<span bgcolor="#383006">""", "</span>", text);
+	text = parse_html("[=]{2}([^=]+)[=]{2}", """<span bgcolor="#383006">""", "</span>", text);
 	// LINK
 	text = parse_link(text);
 	// HEADER
