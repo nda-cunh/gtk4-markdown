@@ -1,91 +1,70 @@
 using Gtk;
 
-public partial class MarkDown : Gtk.Box {
-	string markdown_text;
 
-	// simple parsing replace HTML  <tag>text</tag>
-	string parse_html(string regex_str, string balise_open, string balise_close, string text) throws Error {
-		string result = text;
-		var regex = new Regex(regex_str, RegexCompileFlags.MULTILINE);
-		MatchInfo match_info;
+public class MarkDown : Gtk.Box {
+	/**
+	  Private members
+	*/
 
-		if (regex.match (text, 0, out match_info)) {
-			do {
-				result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
-					bs.append_printf("%s%s%s", balise_open, info.fetch (1), balise_close);
-					return true;
-				});
-			} while (match_info.next ());
-		}
-		return result;
+	private string markdown_text;
+	private Box general_box = new Gtk.Box (Orientation.VERTICAL, 0);
+	private unowned Gtk.Box box;
+	private Viewport viewport = new Viewport (null, null);
+
+	private ScrolledWindow scrolled = new ScrolledWindow () {
+		hexpand = true,
+		vexpand = true,
+	};
+
+
+
+	/**
+	  Constructor
+	*/
+	construct {
+		box = general_box;
 	}
 
-	// Parse link    [name](url "title")
-	string parse_link (string text) throws Error {
-		string result = text;
-		MatchInfo match_info;
-		var regex = new Regex("""\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.MULTILINE);
-		if (regex.match(text, 0, out match_info)) {
-			do {
-				result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
-					var name = info.fetch_named("name");
-					var url = info.fetch_named("url");
-					var title = info.fetch_named("title")?.strip() ?? "\"none\""; 
-					if (title == "")
-						title = "\"none\"";
-
-					// check if the link is an image
-					int start_pos, end_pos;
-					info.fetch_pos (0, out start_pos, out end_pos);
-					if (result[start_pos - 1] == '!') {
-						bs.append_printf("[%s](%s %s)", name, url, title);
-						return false;
-					}
-					bs.append_printf("""<a href="%s" title=%s>%s</a>""", url, title, name);
-					return false;
-				});
-			} while (match_info.next ());
-		}
-		return result;
+	/* Markdown Constructor */
+	public MarkDown() {
+		var provider = new Gtk.CssProvider ();
+		provider.load_from_resource ("/style.css");
+		StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, STYLE_PROVIDER_PRIORITY_USER);
+		FileUtils.get_contents ("text.md", out markdown_text);
+		base.append(scrolled);
+		scrolled.child = (viewport);
+		scrolled.min_content_width = 500;
+		scrolled.min_content_height = 800;
+		viewport.child = box;
+		parse (markdown_text);
 	}
 
-	private string simple_parse_html (string text) throws Error {
-		// BOLD/ITALIC/BOLD_ITALIC
-
-		text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
-		text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
-		text = parse_html ("[*]{1}([^*]+)[*]{1}", "<i>", "</i>", text);
-		// LINK
-		text = parse_link(text);
-		// HEADER
-		text = parse_html("^[#]{1} (.*?)$$", """<span size="400%">""", "</span>", text);
-		text = parse_html("^[#]{2} (.*?)$$", """<span size="350%">""", "</span>", text);
-		text = parse_html("^[#]{3} (.*?)$$", """<span size="300%">""", "</span>", text);
-		text = parse_html("^[#]{4} (.*?)$$", """<span size="250%">""", "</span>", text);
-		text = parse_html("^[#]{5} (.*?)$$", """<span size="200%">""", "</span>", text);
-		text = parse_html("^[#]{6} (.*?)$$", """<span size="150%">""", "</span>", text);
-		// simple code 
-		text = parse_html("[`]([^*]+)[`][^`]", """<span bgcolor="#292443">""", "</span>", text);
-		return text;
-	}
-	void parse () throws Error {
-		// markdown_text = simple_parse_html (markdown_text);
-		int start = 0;
+	void parse (owned string text_md) throws Error {
+		// string text_md = text_md_parse;
 		MatchInfo match_info;
 
 		var regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
 		var regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
 		var regex_code = new Regex("```(?P<lang>[a-zA-Z0-9]*)?\n(?P<code>.+?)?```", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+		var regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
 
+		int start = 0;
 
-		int i = 0;
-		while (markdown_text[i] != '\0') {
+		for (int i = 0; text_md[i] != '\0'; ++i) {
 			int start_pos, end_pos;
+			bool is_nl;
+			if (i == 0)
+				is_nl = true;
+			else
+				is_nl = (text_md[i - 1] == '\n');
+			if (is_nl == false)
+				continue;
+
 			// image parsing
-			if (markdown_text[i - 1] == '\n' && markdown_text[i] == '!') {
-				if (regex_image.match(markdown_text.offset(i), 0, out match_info)) {
+			if (text_md[i] == '!') {
+				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (markdown_text[start:i]);
+					append_text (text_md[start:i]);
 
 					var name = match_info.fetch_named("name");
 					var url = match_info.fetch_named("url");
@@ -98,40 +77,62 @@ public partial class MarkDown : Gtk.Box {
 				}
 			}
 			// table parsing
-			else if (markdown_text[i - 1] == '\n' && markdown_text[i] == '|') {
-				if (regex_table.match(markdown_text.offset(i - 1), 0, out match_info)) {
+			else if (text_md[i] == '|') {
+				if (regex_table.match(text_md.offset(i - 1), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (markdown_text[start:i]);
-					string table = markdown_text.offset(i)[0:end_pos - 1];
+					append_text (text_md[start:i]);
+					string table = text_md.offset(i)[0:end_pos - 1];
 					append_table (table);
 					i += end_pos - 1;
 					start = i;
 				}
 			}
-			// le truc des tiret
-			if (markdown_text[i - 1] == '\n' && markdown_text[i] == '-') {
-				markdown_text = "%s%s%s".printf(markdown_text[0:i], "•", markdown_text.offset(i+1)); 
+			// - to bullet list
+			if (text_md[i] == '-') {
+				text_md = "%s%s%s".printf(text_md[0:i], "•", text_md.offset(i+1)); 
 			}
 			
-			if (markdown_text[i - 1] == '\n' && markdown_text[i] == '`' && markdown_text[i + 1] == '`' && markdown_text[i + 2] == '`') {
-				print ("code block %s\n", markdown_text.offset(i));
-				if (regex_code.match(markdown_text.offset(i), 0, out match_info)) {
+			if (text_md[i] == '>') {
+				if (regex_blockquotes.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					append_text (markdown_text[start:i]);
-					print ("code block\n\nWWW\n\n");
+					append_text (text_md[start:i]);
+					var blockquotes = match_info.fetch (0);
+					append_blockquotes(blockquotes);
+					i += end_pos;
+					start = i;
+				}
+			}
+			
+			if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
+				if (regex_code.match(text_md.offset(i), 0, out match_info)) {
+					match_info.fetch_pos (0, out start_pos, out end_pos);
+					append_text (text_md[start:i]);
 					var lang = match_info.fetch_named("lang") ?? "none";
 					var code = match_info.fetch_named("code");
-
-					print (@"\033[32;1mlanguage\033[0;32m [$lang]\033[0m\n");
-					print (@"\033[1;93mcode\033[0;93m\n[$code]\033[0m\n");
 					append_textcode(lang, code);
 					i += end_pos;
 					start = i;
 				}
 			}
-			++i;
 		}
-		append_text (markdown_text.offset(start));
+		
+		append_text (text_md.offset(start));
+	}
+
+	private void append_blockquotes (string content) throws Error {
+		var block_quotes = new Gtk.Box (Orientation.VERTICAL, 0) {
+			css_classes = {"blockquotes"},
+			halign = Align.START,
+			valign = Align.FILL,
+			hexpand = false,
+			vexpand = false,
+		};
+		box.append(block_quotes);
+		box = block_quotes;
+		var regex = new Regex("^>[ ]?", MULTILINE);
+		var parse_me = regex.replace (content, -1, 0, "");
+		parse (parse_me);
+		box = general_box;
 	}
 
 	private void append_table (string content) throws Error {
@@ -147,8 +148,13 @@ public partial class MarkDown : Gtk.Box {
 
 	private void append_img (string name, string url, string title) {
 		if (url.has_suffix (".gif") || url.has_suffix (".webp")) {
-			var img = new Gif (url);
-			box.append (img);
+			try {
+				var img = new Gif (url);
+				box.append (img);
+			}
+			catch (Error e) {
+				print ("Error: %s\n", e.message);
+			}
 			return ;
 		}
 		else {
@@ -182,7 +188,7 @@ public partial class MarkDown : Gtk.Box {
 	
 	private void append_textcode (string lang, string code) throws Error {
 		// BOX code
-		var _box = new Gtk.Box (Orientation.HORIZONTAL, 0) {
+		var box_code = new Gtk.Box (Orientation.HORIZONTAL, 0) {
 			css_classes = {"code_box"},
 			halign = Align.START,
 			valign = Align.FILL,
@@ -215,7 +221,7 @@ public partial class MarkDown : Gtk.Box {
 
 		text.set_size_request (300, -1);
 		
-		_box.append(new Gtk.Label (line_bar.str) {
+		box_code.append(new Gtk.Label (line_bar.str) {
 			css_classes = {"line_bar"},
 			halign = Align.START,
 			valign = Align.START,
@@ -223,54 +229,82 @@ public partial class MarkDown : Gtk.Box {
 			hexpand = true,
 			justify = Justification.LEFT,
 		});
-		_box.append(text);
-		box.append (_box);
+		box_code.append(text);
+		box.append (box_code);
 	}
-
-
-	Box box = new Gtk.Box (Orientation.VERTICAL, 0);
-	ScrolledWindow scrolled = new ScrolledWindow () {
-		hexpand = true,
-		vexpand = true,
-	};
-	Viewport viewport = new Viewport (null, null);
-
-	/* Markdown Constructor */
-	public MarkDown() {
-		try {
-			var provider = new Gtk.CssProvider ();
-		provider.load_from_data ("""
-.code_box {
-	background-color: #292929;
-	border : solid 1px #787063;
-}
-.code_box textview {
-	background-color: #292929;
-	padding-top: 6px;
-	padding-left : 10px;
-}
-.line_bar {
-	background-color: #292443;
-	color: white;
-	padding-right: 10px;
-	padding-left: 10px;
-	padding-top: 5px;
-	padding-bottom: 5px;
-	border: 0px;
 }
 
-""".data);
-	Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
-			FileUtils.get_contents ("text.md", out markdown_text);
-			base.append(scrolled);
-			scrolled.child = (viewport);
-			scrolled.min_content_width = 500;
-			scrolled.min_content_height = 800;
-			viewport.child = box;
-			parse ();
-		}
-		catch (Error e) {
-			print ("Error: %s\n", e.message);
-		}
+
+
+
+
+
+/** 
+* Simple function to parse markdown text HTML
+*/
+
+// simple parsing replace HTML  <tag>text</tag>
+private string parse_html(string regex_str, string balise_open, string balise_close, string text) throws Error {
+	string result = text;
+	var regex = new Regex(regex_str, RegexCompileFlags.MULTILINE);
+	MatchInfo match_info;
+
+	if (regex.match (text, 0, out match_info)) {
+		do {
+			result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
+				bs.append_printf("%s%s%s", balise_open, info.fetch (1), balise_close);
+				return true;
+			});
+		} while (match_info.next ());
 	}
+	return result;
+}
+
+// Parse link    [name](url "title")
+private string parse_link (string text) throws Error {
+	string result = text;
+	MatchInfo match_info;
+	var regex = new Regex("""\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.MULTILINE);
+	if (regex.match(text, 0, out match_info)) {
+		do {
+			result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
+				var name = info.fetch_named("name");
+				var url = info.fetch_named("url");
+				var title = info.fetch_named("title")?.strip() ?? "\"none\""; 
+				if (title == "")
+					title = "\"none\"";
+
+				// check if the link is an image
+				int start_pos, end_pos;
+				info.fetch_pos (0, out start_pos, out end_pos);
+				if (result[start_pos - 1] == '!') {
+					bs.append_printf("[%s](%s %s)", name, url, title);
+					return false;
+				}
+				bs.append_printf("""<a href="%s" title=%s>%s</a>""", url, title, name);
+				return false;
+			});
+		} while (match_info.next ());
+	}
+	return result;
+}
+
+private string simple_parse_html (string text) throws Error {
+	// BOLD/ITALIC/BOLD_ITALIC
+
+	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
+	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
+	text = parse_html ("[*]{1}([^*]+)[*]{1}", "<i>", "</i>", text);
+	// LINK
+	text = parse_link(text);
+	// HEADER
+	text = parse_html("^[#]{1} (.*?)$$", """<span size="400%">""", "</span>", text);
+	text = parse_html("^[#]{2} (.*?)$$", """<span size="350%">""", "</span>", text);
+	text = parse_html("^[#]{3} (.*?)$$", """<span size="300%">""", "</span>", text);
+	text = parse_html("^[#]{4} (.*?)$$", """<span size="250%">""", "</span>", text);
+	text = parse_html("^[#]{5} (.*?)$$", """<span size="200%">""", "</span>", text);
+	text = parse_html("^[#]{6} (.*?)$$", """<span size="150%">""", "</span>", text);
+	// simple code 
+	text = parse_html("[`]([^*]+)[`][^`]", """<span bgcolor="#292443">""", "</span>", text);
+	return text;
 }

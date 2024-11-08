@@ -13,6 +13,7 @@ public class ExampleApp : Gtk.Application {
 			margin_start = 15,
 			margin_top = 15,
 		};
+
 		win.present ();
 	}
 

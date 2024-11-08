@@ -3,34 +3,6 @@ using Gtk;
 public class Table : Gtk.Grid {
 	construct {
 		css_classes = {"table"};
-		var provider = new Gtk.CssProvider ();
-		provider.load_from_data ("""
-.table {
-	border: solid 1px #787063;
-}
-
-.table .table_label {
-	padding-right: 10px;
-	padding-left: 10px;
-	padding-top: 5px;
-	padding-bottom: 5px;
-	background-color: #202224;
-	border: solid 0.5px #787063;
-}
-
-.table .header_table {
-	background-color: #404040;
-	color: white;
-	font-weight: bold;
-	padding-right: 20px;
-	padding-left: 20px;
-	padding-top: 10px;
-	padding-bottom: 10px;
-	border: solid 1px #787063;
-}
-
-""".data);
-	Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
 	}
 
 	public Table () {

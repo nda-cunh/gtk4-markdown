@@ -6,9 +6,41 @@
 
 ### Heading level 3
 
+|a|b|c|
+|-|-|-|
+|1|2|3|
+|3|4|5|
+|6|7|8|
+
+
+> #### The quarterly results look great!
+>
+> - Revenue was off the chart.
+> - Profits were higher than ever.
+>
+>  *Everything* is going according to **plan**.
+>>  *Everything* is going according to **plan**.
+>>>  *Everything* is going according to **plan**.
+>>>>  *Everything* is going according to **plan**.
+>>>>>  *Everything* is going according to **plan**.
+>>>>>>  *Everything* is going according to **plan**.
+>>>>>>>  *Everything* is going according to **plan**.
+>>>>>>>>  *Everything* is going according to **plan**.
+
 [**example.com**](https://www.example.com)
 [example.com](https://www.example.com)
 [duck.com](https://www.duckduckgo.com)
+
+
+```c
+#include <stdio.h>
+
+int main() {
+	printf("Hello, World!");
+	return 0;
+}
+```
+
 
 - abricot
 - banane
@@ -22,12 +54,6 @@
 | 3     | 4                  |
 
 
-> #### The quarterly results look great!
->
-> - Revenue was off the chart.
-> - Profits were higher than ever.
->
->  *Everything* is going according to **plan**.
 
 [duck.com](https://www.duckduckgo.com)
 bold : **text with bold**
@@ -40,18 +66,6 @@ bold-italic: ***very important text in bold and italic*** simple text.
 >> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
 >> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
 
-1. First item
-2. Second item
-3. Third item
-    1. Indented item
-    2. Indented item
-4. Fourth item
-
-teste `mouche` oui
-teste
-teste
-teste
-abcde
 Attention : la copie ctrl c, ctrl v, Ne remplace absolument pas d,y,p a utilisé uniquement pour copier d'un programme à un autre
 
 | Nom | Raccourcis |
