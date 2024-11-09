@@ -388,8 +388,8 @@ private string parse_link (string text) throws Error {
 
 private string simple_parse_html (owned string text) throws Error {
 	// BOLD/ITALIC/BOLD_ITALIC
-	text = text.replace("<", "&lt;");
-	text = text.replace(">", "&gt;");
+	text = text.replace("\\<", "&lt;");
+	text = text.replace("\\>", "&gt;");
 
 	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
 	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
