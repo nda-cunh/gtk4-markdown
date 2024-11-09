@@ -22,7 +22,8 @@ public class MarkDown : Gtk.Box {
 		try {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
 			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
-			regex_code = new Regex("```(?P<lang>[a-zA-Z0-9]*)?\n(?P<code>.+?)?```", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+			regex_code = new Regex("""^```(?P<lang>\S*)?\n(?P<code>.*?)```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+
 			regex_task = new Regex("""^-\s\[(X|x| )\]\s*(?<name>.*)""");
 			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
 		}
@@ -45,12 +46,13 @@ public class MarkDown : Gtk.Box {
 	}
 
 	public void load_from_string (string text) throws Error {
-		parse (text);
+		parse (text.replace("\r", ""));
 	}
 
 	public void load_from_file (string file) throws Error {
 		string markdown_text;
 		FileUtils.get_contents (file, out markdown_text);
+		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
 	}
 
@@ -384,8 +386,10 @@ private string parse_link (string text) throws Error {
 	return result;
 }
 
-private string simple_parse_html (string text) throws Error {
+private string simple_parse_html (owned string text) throws Error {
 	// BOLD/ITALIC/BOLD_ITALIC
+	text = text.replace("<", "&lt;");
+	text = text.replace(">", "&gt;");
 
 	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
 	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
@@ -401,6 +405,6 @@ private string simple_parse_html (string text) throws Error {
 	text = parse_html("^[#]{5} (.*?)$$", """<span size="110%">""", "</span>", text);
 	text = parse_html("^[#]{6} (.*?)$$", """<span size="85%">""", "</span>", text);
 	// simple code
-	text = parse_html("[`]([^*]+)[`][^`]", """<span bgcolor="#292443">""", "</span>", text);
+	text = parse_html("[`]([^`]+)[`]", """<span bgcolor="#292443">""", "</span>", text);
 	return text;
 }
