@@ -9,10 +9,15 @@ public class MarkDown : Gtk.Box {
 	private Regex		regex_code;
 	private Regex		regex_task;
 	private Regex		regex_blockquotes;
+	private Regex		regex_link;
+	private Regex		regex_blockquotes_replace;
 	private Box			general_box;
+
+	public string path_dir {get; set;}
 
 	/** Constructor */
 	construct {
+		path_dir = Environment.get_current_dir ();
 		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
 		box = general_box;
 		var provider = new Gtk.CssProvider ();
@@ -20,12 +25,13 @@ public class MarkDown : Gtk.Box {
 		StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, STYLE_PROVIDER_PRIORITY_APPLICATION);
 		base.append(general_box);
 		try {
-			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""");
-			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE);
-			regex_code = new Regex("""^```(?P<lang>\S*)?\n(?P<code>.*?)```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
-
-			regex_task = new Regex("""^-\s\[(X|x| )\]\s*(?<name>.*)""");
-			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE);
+			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.OPTIMIZE);
+			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+			regex_code = new Regex("""^```(?P<lang>\S*)?\n(?P<code>.*?)```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+			regex_link = new Regex("""^\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
+			regex_task = new Regex("""^-\s\[(X|x| )\]\s*(?<name>.*)""", RegexCompileFlags.OPTIMIZE);
+			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+			regex_blockquotes_replace = new Regex("^>[ ]?", MULTILINE | OPTIMIZE);
 		}
 		catch (Error e) {
 			error ("Error: %s\n", e.message);
@@ -38,27 +44,36 @@ public class MarkDown : Gtk.Box {
 	}
 
 	public MarkDown.from_file (string file) throws Error {
-		load_from_file (file);
+		load_file (file);
 	}
 
 	public MarkDown.from_string (string text) throws Error {
 		parse (text);
 	}
 
-	public void load_from_string (string text) throws Error {
+	public void load_string (string text) throws Error {
+		Timer timer = new Timer ();
+		timer.reset ();
 		parse (text.replace("\r", ""));
+		print ("Time string: %f\n", timer.elapsed());
 	}
 
-	public void load_from_file (string file) throws Error {
+	public void load_file (string file) throws Error {
+		Timer timer = new Timer ();
+		timer.reset ();
 		string markdown_text;
 		FileUtils.get_contents (file, out markdown_text);
 		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
+		print ("Time file: %f\n", timer.elapsed());
 	}
 
 	public void clear () {
+		base.remove (general_box);
+		general_box = null;
 		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
 		box = general_box;
+		base.append(general_box);
 	}
 
 
@@ -109,7 +124,7 @@ public class MarkDown : Gtk.Box {
 				}
 			}
 			// image parsing
-			if (text_md[i] == '!') {
+			else if (text_md[i] == '!') {
 				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
 					if (start != i)
@@ -137,20 +152,8 @@ public class MarkDown : Gtk.Box {
 					start = i;
 				}
 			}
-			// - to bullet list
-			if (text_md[i] == '-' && text_md[i + 1] == ' ') {
-				if (start == 0)
-					append_text (text_md[start:i]);
-				else if (start != i)
-					append_text (text_md[start+1:i]);
-				int nl = text_md.offset(i).index_of_char ('\n');
-				var str = "• " + simple_parse_html(text_md.offset(i)[2:nl]);
-				append_text (str);
-				start = i + 0 + nl;
-				i = start;
-			}
 
-			if (text_md[i] == '>') {
+			else if (text_md[i] == '>') {
 				if (regex_blockquotes.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
 					if (start != i)
@@ -162,7 +165,7 @@ public class MarkDown : Gtk.Box {
 				}
 			}
 
-			if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
+			else if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
 				if (regex_code.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
 					if (start != i)
@@ -212,14 +215,13 @@ public class MarkDown : Gtk.Box {
 		};
 		box.append(block_quotes);
 		box = block_quotes;
-		var regex = new Regex("^>[ ]?", MULTILINE);
-		var parse_me = regex.replace (content, -1, 0, "");
+		var parse_me = regex_blockquotes_replace.replace (content, -1, 0, "");
 		parse (parse_me);
 		box = general_box;
 	}
 
 	private void append_table (string content) throws Error {
-		content = simple_parse_html (content);
+		content = label_parsing (content);
 		var table = new Table.from_content (content) {
 			halign = Align.START,
 			valign = Align.FILL,
@@ -230,9 +232,10 @@ public class MarkDown : Gtk.Box {
 	}
 
 	private void append_img (string name, string url, string title) {
-		if (url.has_suffix (".gif") || url.has_suffix (".webp")) {
+		string _url = path_dir + "/" + url; 
+		if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
 			try {
-				var img = new Gif (url);
+				var img = new Gif (_url);
 				box.append (img);
 			}
 			catch (Error e) {
@@ -241,7 +244,7 @@ public class MarkDown : Gtk.Box {
 			return ;
 		}
 		else {
-			Picture img = new Gtk.Picture.for_filename (url) {
+			Picture img = new Gtk.Picture.for_filename (_url) {
 				halign = Align.START,
 				valign = Align.FILL,
 				hexpand= true,
@@ -259,7 +262,7 @@ public class MarkDown : Gtk.Box {
 	public signal bool activate_link (string uri);
 
 	private void append_text (string text) throws Error {
-		text = simple_parse_html (text);
+		text = label_parsing (text);
 		var label = new Gtk.Label (text) {
 			halign = Align.START,
 			use_markup = true,
@@ -271,7 +274,12 @@ public class MarkDown : Gtk.Box {
 		label.activate_link.connect ((uri) => {
 			if (this.activate_link(uri) == false) {
 				try {
-					Process.spawn_command_line_async("xdg-open " + uri);
+					if (FileUtils.test (path_dir + "/" + uri + ".md", FileTest.EXISTS)) {
+						this.clear();
+						this.load_file (path_dir + "/" + uri + ".md");
+					}
+					else
+						Process.spawn_command_line_async("xdg-open " + uri);
 				}
 				catch (Error e) {
 					print ("Error: %s\n", e.message);
@@ -329,82 +337,209 @@ public class MarkDown : Gtk.Box {
 		box_code.append(text);
 		box.append (box_code);
 	}
-}
 
 
+	/** Simple parsing for Label */
+	private string label_parsing (owned string text) throws Error {
+		StringBuilder result = new StringBuilder();
+		int i = 0;
+
+		MatchInfo info;
+		bool is_newline = true;
+		bool is_header = false;
+		bool is_bold = false;
+		bool is_italic = false;
+		bool is_bolditalic = false;
+		bool is_code1 = false;
+		bool is_code2 = false;
+		bool is_highlight = false;
+		bool is_strike = false;
+		bool is_underline = false;
+		bool is_sub = false;
+		bool is_sup = false;
 
 
+		while (text[i] != '\0') {
+			if (is_newline) {
+				
+				// HEADER 
+				if (text[i] == '#') {
+					int n = 0;
+					while (text[i + n] == '#')
+						++n;
+					if (text[i + n] == ' ') {
+						is_header = true;
+						switch (n) {
+							case 1:
+								result.append("<span size=\"300%\">");
+								break;
+							case 2:
+								result.append("<span size=\"200%\">");
+								break;
+							case 3:
+								result.append("<span size=\"150%\">");
+								break;
+							case 4:
+								result.append("<span size=\"125%\">");
+								break;
+							case 5:
+								result.append("<span size=\"110%\">");
+								break;
+							case 6:
+								result.append("<span size=\"85%\">");
+								break;
+						}
+						i += n + 1;
+					}
+				}
+			}
 
-
-/**
-* Simple function to parse markdown text HTML
-*/
-
-// simple parsing replace HTML  <tag>text</tag>
-private string parse_html(string regex_str, string balise_open, string balise_close, string text) throws Error {
-	string result = text;
-	var regex = new Regex(regex_str, RegexCompileFlags.MULTILINE);
-	MatchInfo match_info;
-
-	if (regex.match (text, 0, out match_info)) {
-		do {
-			result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
-				bs.append_printf("%s%s%s", balise_open, info.fetch (1), balise_close);
-				return true;
-			});
-		} while (match_info.next ());
-	}
-	return result;
-}
-
-// Parse link    [name](url "title")
-private string parse_link (string text) throws Error {
-	string result = text;
-	MatchInfo match_info;
-	var regex = new Regex("""\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.MULTILINE);
-	if (regex.match(text, 0, out match_info)) {
-		do {
-			result = regex.replace_eval (result, -1, 0, 0, (info, bs) => {
-				var name = info.fetch_named("name");
-				var url = info.fetch_named("url");
-				var title = info.fetch_named("title")?.strip() ?? "\"none\"";
-				if (title == "")
-					title = "\"none\"";
-
-				// check if the link is an image
+			if (regex_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
 				int start_pos, end_pos;
 				info.fetch_pos (0, out start_pos, out end_pos);
-				if (result[start_pos - 1] == '!') {
-					bs.append_printf("[%s](%s %s)", name, url, title);
-					return false;
+				
+				var name = info.fetch_named("name");
+				var url = info.fetch_named("url");
+				var? title = info.fetch_named("title")?.strip();
+				if (title == null || title == "")
+					result.append_printf ("<a href=\"%s\">%s</a>", url, name);
+				else
+					result.append_printf ("<a href=\"%s\" title=%s>%s</a>", url, title, name);
+				i += end_pos;
+			}
+				// CODE
+			else if (text[i] == '`') {
+				int n = 0;
+				while (text[i + n] == '`')
+					++n;
+				switch (n) {
+					case 1:
+						if (is_code1)
+							result.append("</span>");
+						else
+							result.append("<span bgcolor=\"#292443\">");
+						is_code1 = !is_code1;
+						i += 1;
+						break;
+					case 2:
+						if (is_code2)
+							result.append("</span>");
+						else
+							result.append("<span bgcolor=\"#292959\">");
+						is_code2 = !is_code2;
+						i += 2;
+						break;
 				}
-				bs.append_printf("""<a href="%s" title=%s>%s</a>""", url, title, name);
-				return false;
-			});
-		} while (match_info.next ());
+			}
+
+			// BOLD/ITALIC/BOLD_ITALIC
+			else if (text[i] == '*') {
+				int n = 0;
+				while (text[i + n] == '*')
+					++n;
+				if (n <= 3) {
+					switch (n) {
+						case 1:
+							if (is_italic)
+								result.append("</i>");
+							else
+								result.append("<i>");
+							is_italic = !is_italic;
+							break;
+						case 2:
+							if (is_bold)
+								result.append("</b>");
+							else
+								result.append("<b>");
+							is_bold = !is_bold;
+							break;
+						case 3:
+							if (is_bolditalic)
+								result.append("</i></b>");
+							else
+								result.append("<b><i>");
+							is_bolditalic = !is_bolditalic;
+							break;
+					}
+					i += n;
+				}
+			}
+
+			else if (text[i] == '=' && text[i + 1] == '=') {
+				if (is_highlight)
+					result.append("</span>");
+				else
+					result.append("<span bgcolor=\"#594939\">");
+				is_highlight = !is_highlight;
+				i += 2;
+			}
+
+			else if (text[i] == '~') {
+				int n = 0;
+				while (text[i + n] == '~')
+					++n;
+				switch (n) {
+					case 1:
+						if (is_sub)
+							result.append("</sub>");
+						else
+							result.append("<sub>");
+						is_sub = !is_sub;
+						break;
+					case 2:
+						if (is_strike)
+							result.append("</s>");
+						else
+							result.append("<s>");
+						is_strike = !is_strike;
+						break;
+				}
+				i += n;
+			}
+
+			else if (text[i] == '^' && text[i + 1] != '^') {
+				if (is_sup)
+					result.append("</sup>");
+				else
+					result.append("<sup>");
+				is_sup = !is_sup;
+				i += 1;
+			}
+
+			else if (text[i] == '_' && text[i + 1] == '_') {
+				if (is_underline)
+					result.append("</u>");
+				else
+					result.append("<u>");
+				is_underline = !is_underline;
+				i += 2;
+			}
+
+
+
+
+
+			if (text[i] == '\n') {
+				is_newline = true;
+				if (is_header) {
+					result.append("</span>");
+					is_header = false;
+				}
+			}
+
+			if (text[i] == '<') {
+				result.append("&lt;");
+			}
+			else if (text[i] == '>') {
+				result.append("&gt;");
+			}
+			else {
+				result.append_c (text[i]);
+			}
+
+			++i;
+		}
+
+		return (owned)result.str;
 	}
-	return result;
-}
-
-private string simple_parse_html (owned string text) throws Error {
-	// BOLD/ITALIC/BOLD_ITALIC
-	text = text.replace("\\<", "&lt;");
-	text = text.replace("\\>", "&gt;");
-
-	text = parse_html ("[*]{3}([^*]+)[*]{3}", "<b><i>", "</i></b>", text);
-	text = parse_html ("[*]{2}([^*]+)[*]{2}", "<b>", "</b>", text);
-	text = parse_html ("[*]{1}([^*]+)[*]{1}", "<i>", "</i>", text);
-	text = parse_html("[=]{2}([^=]+)[=]{2}", """<span bgcolor="#383006">""", "</span>", text);
-	// LINK
-	text = parse_link(text);
-	// HEADER
-	text = parse_html("^[#]{1} (.*?)$$", """<span size="300%">""", "</span>", text);
-	text = parse_html("^[#]{2} (.*?)$$", """<span size="200%">""", "</span>", text);
-	text = parse_html("^[#]{3} (.*?)$$", """<span size="150%">""", "</span>", text);
-	text = parse_html("^[#]{4} (.*?)$$", """<span size="125%">""", "</span>", text);
-	text = parse_html("^[#]{5} (.*?)$$", """<span size="110%">""", "</span>", text);
-	text = parse_html("^[#]{6} (.*?)$$", """<span size="85%">""", "</span>", text);
-	// simple code
-	text = parse_html("[`]([^`]+)[`]", """<span bgcolor="#292443">""", "</span>", text);
-	return text;
 }

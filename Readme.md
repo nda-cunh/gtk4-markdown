@@ -5,13 +5,10 @@ This is a simple markdown viewer written in Vala with Gtk4.
 
 ## Features
 
-I need to highlight these ==very important words==.
-
-
 ### Basic Syntax 
 - [x] Headings
 - [x] Paragraphs
-- [x] Emphasis
+- [x] Emphasis (italics, bold, strikethrough, underline, highlight)
 - [x] Blockquotes
 - [ ] Lists
 - [x] Code
@@ -24,14 +21,12 @@ I need to highlight these ==very important words==.
 - [x] Tables
 - [x] Task Lists
 - [x] Highlight
+- [x] Subscript
+- [x] Superscript
+- [ ] Automatic URL Linking
 - [ ] Footnotes
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs
 - [ ] Definition Lists
 - [ ] Strikethrough
-- [ ] Subscript
-- [ ] Superscript
-- [ ] Automatic URL Linking
 - [ ] Emoji
-
-yep hello world
