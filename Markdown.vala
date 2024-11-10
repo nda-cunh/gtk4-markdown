@@ -221,7 +221,7 @@ public class MarkDown : Gtk.Box {
 	}
 
 	private void append_table (string content) throws Error {
-		content = label_parsing (content);
+		content = label_parsing (content, true);
 		var table = new Table.from_content (content) {
 			halign = Align.START,
 			valign = Align.FILL,
@@ -341,7 +341,7 @@ public class MarkDown : Gtk.Box {
 
 
 	/** Simple parsing for Label */
-	private string label_parsing (owned string text) throws Error {
+	private string label_parsing (owned string text, bool is_table = false) throws Error {
 		StringBuilder result = new StringBuilder();
 		int i = 0;
 
@@ -392,6 +392,10 @@ public class MarkDown : Gtk.Box {
 						}
 						i += n + 1;
 					}
+				}
+				if (is_table == false && text[i] == '-') {
+					result.append("•");
+					++i;
 				}
 			}
 
