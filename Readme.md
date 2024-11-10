@@ -23,7 +23,7 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Highlight
 - [x] Subscript
 - [x] Superscript
-- [ ] Automatic URL Linking
+- [X] Automatic URL Linking
 - [ ] Footnotes
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs

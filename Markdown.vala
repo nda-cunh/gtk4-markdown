@@ -358,11 +358,17 @@ public class MarkDown : Gtk.Box {
 		bool is_underline = false;
 		bool is_sub = false;
 		bool is_sup = false;
-
+		bool is_quote = false;
+		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
 
 		while (text[i] != '\0') {
 			if (is_newline) {
 				
+				if (is_table == false && text[i] == '-') {
+					result.append("•");
+					++i;
+				}
+
 				// HEADER 
 				if (text[i] == '#') {
 					int n = 0;
@@ -393,10 +399,15 @@ public class MarkDown : Gtk.Box {
 						i += n + 1;
 					}
 				}
-				if (is_table == false && text[i] == '-') {
-					result.append("•");
-					++i;
-				}
+			}
+
+			// AUTOMATIC LINK
+			if (regex_automatic_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info) && is_quote == false) {
+				int start_pos, end_pos;
+				info.fetch_pos (0, out start_pos, out end_pos);
+				var url = info.fetch (0);
+				result.append_printf ("<a href=\"%s\">%s</a>", url, url);
+				i += end_pos;
 			}
 
 			if (regex_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
@@ -530,6 +541,9 @@ public class MarkDown : Gtk.Box {
 					result.append("</span>");
 					is_header = false;
 				}
+			}
+			if (text[i] == '\'') {
+				is_quote = !is_quote;
 			}
 
 			if (text[i] == '<') {
