@@ -20,6 +20,7 @@ lib_gtk4markdown = library('markdown',
   asresources,
   dependencies: markdown_dep,
   c_args: '-w',
+  install_dir: [true, true, true],
   install : true)
 
 # Declare dependency for the library
