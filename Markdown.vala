@@ -269,6 +269,7 @@ public class MarkDown : Gtk.Box {
 			selectable = true,
 			hexpand = false,
 			vexpand = false,
+			wrap = true,
 			can_focus = false
 		};
 		label.activate_link.connect ((uri) => {
