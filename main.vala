@@ -15,12 +15,17 @@ public class ExampleApp : Gtk.Application {
 				margin_top = 15,
 			};
 
-			foreach (var cmd in cmds[1:]) {
-				markdown.load_file (cmd);
+			markdown.path_dir = "/nfs/homes/nda-cunh/.local/share/supravim-gui/";
+			if (cmds.length == 1) {
+				markdown.load_file ("Readme.md");
+			}
+			else {
+				foreach (var cmd in cmds[1:]) {
+					markdown.load_file (cmd);
+				}
 			}
 			// markdown.load_from_file ("/nfs/homes/nda-cunh/.local/share/supravim-gui/Compilation.md");
 			// markdown.clear();
-			// markdown.path_dir = "/nfs/homes/nda-cunh/.local/share/supravim-gui/";
 			// markdown.load_file ("Readme.md");
 
 

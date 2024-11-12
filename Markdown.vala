@@ -36,10 +36,12 @@ public class MarkDown : Gtk.Box {
 		catch (Error e) {
 			error ("Error: %s\n", e.message);
 		}
+		hexpand = true;
+		vexpand = true;
 	}
 
 	/* Markdown Constructor */
-	public MarkDown () throws Error {
+	public MarkDown () {
 
 	}
 
@@ -52,20 +54,20 @@ public class MarkDown : Gtk.Box {
 	}
 
 	public void load_string (string text) throws Error {
-		Timer timer = new Timer ();
-		timer.reset ();
+		// Timer timer = new Timer ();
+		// timer.reset ();
 		parse (text.replace("\r", ""));
-		print ("Time string: %f\n", timer.elapsed());
+		// print ("Time string: %f\n", timer.elapsed());
 	}
 
 	public void load_file (string file) throws Error {
-		Timer timer = new Timer ();
-		timer.reset ();
+		// Timer timer = new Timer ();
+		// timer.reset ();
 		string markdown_text;
 		FileUtils.get_contents (file, out markdown_text);
 		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
-		print ("Time file: %f\n", timer.elapsed());
+		// print ("Time file: %f\n", timer.elapsed());
 	}
 
 	public void clear () {
@@ -137,7 +139,7 @@ public class MarkDown : Gtk.Box {
 						title = "\"none\"";
 					append_img (name, url, title);
 					i += end_pos;
-					start = i + 1;
+					start = i ;
 				}
 			}
 			// table parsing
@@ -160,7 +162,7 @@ public class MarkDown : Gtk.Box {
 						append_text (text_md[start:i]);
 					var blockquotes = match_info.fetch (0);
 					append_blockquotes(blockquotes);
-					i += end_pos;
+					i += end_pos - 2;
 					start = i;
 				}
 			}
@@ -231,30 +233,38 @@ public class MarkDown : Gtk.Box {
 		box.append (table);
 	}
 
-	private void append_img (string name, string url, string title) {
+	private void append_img (string name, string url, string title) throws Error {
 		string _url = path_dir + "/" + url; 
-		if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
-			try {
+		try {
+			if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
 				var img = new Gif (_url);
 				box.append (img);
+				return ;
+			}
+			else {
+				if (FileUtils.test (_url, FileTest.EXISTS) == false) {
+					throw new FileError.EXIST("Image [%s] not found", _url);
+				}
+				Picture img = new Gtk.Picture.for_filename (_url) {
+					halign = Align.START,
+					valign = Align.FILL,
+					hexpand= true,
+					vexpand=true,
+					can_focus = false,
+					alternative_text = title
+				};
+				img.set_size_request (-1, img.paintable.get_intrinsic_height ());
+				box.append (img);
+				return ;
+			}
+		}
+		catch (Error e) {
+			try {
+				append_text (@"Error: $(e.message)");
 			}
 			catch (Error e) {
-				print ("Error: %s\n", e.message);
+				throw e;
 			}
-			return ;
-		}
-		else {
-			Picture img = new Gtk.Picture.for_filename (_url) {
-				halign = Align.START,
-				valign = Align.FILL,
-				hexpand= true,
-				vexpand=true,
-				can_focus = false,
-				alternative_text = title
-			};
-			img.set_size_request (-1, img.paintable.get_intrinsic_height ());
-			box.append (img);
-			return ;
 		}
 	}
 
@@ -267,7 +277,7 @@ public class MarkDown : Gtk.Box {
 			halign = Align.START,
 			use_markup = true,
 			selectable = true,
-			hexpand = false,
+			hexpand = true,
 			vexpand = false,
 			wrap = true,
 			can_focus = false
@@ -343,8 +353,6 @@ public class MarkDown : Gtk.Box {
 	/** Simple parsing for Label */
 	private string label_parsing (owned string text, bool is_table = false) throws Error {
 		StringBuilder result = new StringBuilder();
-		int i = 0;
-
 		MatchInfo info;
 		bool is_newline = true;
 		bool is_header = false;
@@ -359,14 +367,56 @@ public class MarkDown : Gtk.Box {
 		bool is_sub = false;
 		bool is_sup = false;
 		bool is_quote = false;
+		bool is_escaped = false;
 		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
 
-		while (text[i] != '\0') {
-			if (is_newline) {
-				
-				if (is_table == false && text[i] == '-') {
-					result.append("•");
+		for (int i = 0; text[i] != '\0'; ++i) {
+			// check newline
+			if (i == 0 || text[i - 1] == '\n') {
+				is_newline = true;
+				if (is_header) {
+					result.append("</span>");
+					is_header = false;
+				}
+				is_quote = false;
+			}
+			else
+				is_newline = false;	
+
+			if (i != 0 && text[i - 1] == '\\')
+				is_escaped = true;
+			else
+				is_escaped = false;
+
+
+			// escape me !
+			if (text[i] == '<') {
+				result.append("&lt;");
+				continue;
+			}
+			else if (text[i] == '>') {
+				result.append("&gt;");
+				continue;
+			}
+			if (text[i] == '\\') {
+				if (text[i + 1] == '<') {
+					result.append("&lt;");
 					++i;
+				}
+				else if (text[i + 1] == '>') {
+					result.append("&gt;");
+					++i;
+				}
+				continue ;
+			}
+
+
+
+			if (is_newline == true) {
+				
+				if (is_table == false && text[i] == '-' && text[i + 1] == ' ') {
+					result.append("• ");
+					i += 2;
 				}
 
 				// HEADER 
@@ -401,15 +451,6 @@ public class MarkDown : Gtk.Box {
 				}
 			}
 
-			// AUTOMATIC LINK
-			if (regex_automatic_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info) && is_quote == false) {
-				int start_pos, end_pos;
-				info.fetch_pos (0, out start_pos, out end_pos);
-				var url = info.fetch (0);
-				result.append_printf ("<a href=\"%s\">%s</a>", url, url);
-				i += end_pos;
-			}
-
 			if (regex_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
 				int start_pos, end_pos;
 				info.fetch_pos (0, out start_pos, out end_pos);
@@ -421,10 +462,11 @@ public class MarkDown : Gtk.Box {
 					result.append_printf ("<a href=\"%s\">%s</a>", url, name);
 				else
 					result.append_printf ("<a href=\"%s\" title=%s>%s</a>", url, title, name);
-				i += end_pos;
+				i += end_pos - 1;
+				continue;
 			}
 				// CODE
-			else if (text[i] == '`') {
+			else if (text[i] == '`' && is_escaped == false) {
 				int n = 0;
 				while (text[i + n] == '`')
 					++n;
@@ -435,129 +477,142 @@ public class MarkDown : Gtk.Box {
 						else
 							result.append("<span bgcolor=\"#292443\">");
 						is_code1 = !is_code1;
-						i += 1;
-						break;
+						continue;
 					case 2:
 						if (is_code2)
 							result.append("</span>");
 						else
 							result.append("<span bgcolor=\"#292959\">");
 						is_code2 = !is_code2;
-						i += 2;
-						break;
+						i += 1;
+						continue;
 				}
 			}
 
-			// BOLD/ITALIC/BOLD_ITALIC
-			else if (text[i] == '*') {
-				int n = 0;
-				while (text[i + n] == '*')
-					++n;
-				if (n <= 3) {
+			if (is_code1 == false && is_code2 == false && is_escaped == false) {
+				// AUTOMATIC LINK
+				if (regex_automatic_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
+					int quote_found = 0;
+					int n = 0;
+					while (text[i + n] != '\0' && text[i + n] != '\n')
+					{
+						if (text[i + n] == '\'')
+							++quote_found;
+						++n;
+					}
+					if (quote_found % 2 == 0 && is_quote == false || is_quote == true && quote_found == 0) 
+					{
+						int start_pos, end_pos;
+						info.fetch_pos (0, out start_pos, out end_pos);
+						var url = info.fetch (0);
+						result.append_printf ("<a href=\"%s\">%s</a>", url, url);
+						i += end_pos - 1;
+						continue;
+					}
+				}
+
+				// BOLD/ITALIC/BOLD_ITALIC
+				if (text[i] == '*') {
+					int n = 0;
+					while (text[i + n] == '*')
+						++n;
+					if (n <= 3) {
+						switch (n) {
+							case 1:
+								if (is_italic)
+									result.append("</i>");
+								else
+									result.append("<i>");
+								is_italic = !is_italic;
+								i += n - 1;
+								continue;
+							case 2:
+								if (is_bold)
+									result.append("</b>");
+								else
+									result.append("<b>");
+								is_bold = !is_bold;
+								i += n - 1;
+								continue;
+							case 3:
+								if (is_bolditalic)
+									result.append("</i></b>");
+								else
+									result.append("<b><i>");
+								is_bolditalic = !is_bolditalic;
+								i += n - 1;
+								continue;
+						}
+					}
+				}
+
+				else if (text[i] == '=' && text[i + 1] == '=' && is_escaped == false) {
+					if (is_highlight)
+						result.append("</span>");
+					else
+						result.append("<span bgcolor=\"#594939\">");
+					is_highlight = !is_highlight;
+					i += 1;
+					continue;
+				}
+
+				else if (text[i] == '~' && is_escaped == false) {
+					int n = 0;
+					while (text[i + n] == '~')
+						++n;
 					switch (n) {
 						case 1:
-							if (is_italic)
-								result.append("</i>");
+							if (is_sub)
+								result.append("</sub>");
 							else
-								result.append("<i>");
-							is_italic = !is_italic;
-							break;
+								result.append("<sub>");
+							is_sub = !is_sub;
+							continue;
 						case 2:
-							if (is_bold)
-								result.append("</b>");
+							if (is_strike)
+								result.append("</s>");
 							else
-								result.append("<b>");
-							is_bold = !is_bold;
-							break;
-						case 3:
-							if (is_bolditalic)
-								result.append("</i></b>");
-							else
-								result.append("<b><i>");
-							is_bolditalic = !is_bolditalic;
-							break;
+								result.append("<s>");
+							is_strike = !is_strike;
+							++i;
+							continue;
 					}
-					i += n;
 				}
-			}
 
-			else if (text[i] == '=' && text[i + 1] == '=') {
-				if (is_highlight)
-					result.append("</span>");
-				else
-					result.append("<span bgcolor=\"#594939\">");
-				is_highlight = !is_highlight;
-				i += 2;
-			}
-
-			else if (text[i] == '~') {
-				int n = 0;
-				while (text[i + n] == '~')
-					++n;
-				switch (n) {
-					case 1:
-						if (is_sub)
-							result.append("</sub>");
-						else
-							result.append("<sub>");
-						is_sub = !is_sub;
-						break;
-					case 2:
-						if (is_strike)
-							result.append("</s>");
-						else
-							result.append("<s>");
-						is_strike = !is_strike;
-						break;
+				else if (text[i] == '^' && text[i + 1] != '^' && is_escaped == false) {
+					if (is_sup)
+						result.append("</sup>");
+					else
+						result.append("<sup>");
+					is_sup = !is_sup;
+					continue;
 				}
-				i += n;
-			}
 
-			else if (text[i] == '^' && text[i + 1] != '^') {
-				if (is_sup)
-					result.append("</sup>");
-				else
-					result.append("<sup>");
-				is_sup = !is_sup;
-				i += 1;
-			}
-
-			else if (text[i] == '_' && text[i + 1] == '_') {
-				if (is_underline)
-					result.append("</u>");
-				else
-					result.append("<u>");
-				is_underline = !is_underline;
-				i += 2;
-			}
-
-
-
-
-
-			if (text[i] == '\n') {
-				is_newline = true;
-				if (is_header) {
-					result.append("</span>");
-					is_header = false;
+				else if (text[i] == '_' && text[i + 1] == '_' && is_escaped == false) {
+					if (is_underline)
+						result.append("</u>");
+					else
+						result.append("<u>");
+					is_underline = !is_underline;
+					++i;
+					continue;
 				}
+
 			}
-			if (text[i] == '\'') {
+
+
+			if (text[i] == '\'' && is_escaped == false) {
 				is_quote = !is_quote;
 			}
 
-			if (text[i] == '<') {
-				result.append("&lt;");
-			}
-			else if (text[i] == '>') {
-				result.append("&gt;");
-			}
-			else {
-				result.append_c (text[i]);
-			}
 
-			++i;
+			result.append_c (text[i]);
 		}
+		if (is_header) {
+			result.append("</span>");
+			is_header = false;
+		}
+
 
 		return (owned)result.str;
 	}

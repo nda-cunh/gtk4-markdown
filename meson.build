@@ -13,7 +13,7 @@ markdown_dep = [
 ]
 
 # Library gtk4 markdown
-lib_gtk4markdown = library('markdown',
+lib_gtk4markdown = static_library('markdown',
   'Markdown.vala',
   'Table.vala',
   'Gif.vala',
