@@ -349,268 +349,114 @@ public class MarkDown : Gtk.Box {
 		box.append (box_code);
 	}
 
+	void change_token (StringBuilder new_line, int i, string token, string open, string close, string? escape = null) {
+		int len_open = open.length;
+		int len_token = token.length;
+
+		while (i < new_line.len)
+		{
+			if (new_line.str.offset(i).has_prefix(token) && new_line.str[i + len_token] != token[0])
+			{
+				// Skip if token is escaped
+				if (i != 0 && new_line.str[i - 1] == '\\')
+				{
+					// new_line.erase(i - 1, 1);
+					++i;
+					continue;
+				}
+				// find closing tag and replace
+				int j = i + len_token;
+				do {
+					j = new_line.str.index_of(token, j + 1);
+				} while (new_line.str[j - 1] == '\\');
+				// escape all character 'escape' between token ``**`` -> <code>**</code>
+				// insert backslash before escape character
+				if (escape != null) {
+					for (int k = i; k < j; ++k)
+					{
+						if (escape.index_of_char(new_line.str[k]) != -1)
+						{
+							new_line.insert(k, "\\");
+							++k;
+							++j;
+						}
+					}
+				}
+				// check if there is a closing tag in line (\0 or \n)
+				if (j != -1)
+				{
+					new_line.erase(i, len_token);
+					new_line.insert(i, open);
+					new_line.erase(j+len_open - len_token, len_token);
+					new_line.insert(j - len_token + len_open, close);
+					i = j + 1;
+				}
+
+			}
+			++i;
+		}
+	}
+
+int append_line (StringBuilder new_line, string line) {
+	var start = (int)new_line.len;
+	new_line.append (line);
+
+	change_token (new_line, start, "```", "<span bgcolor=\"#292959\">", "</span>", "*=_^~!");
+	change_token (new_line, start, "``", "<span bgcolor=\"#292959\">", "</span>", "*=_^~!");
+	change_token (new_line, start, "`", "<span bgcolor=\"#292959\">", "</span>", "*=_^~!");
+	change_token (new_line, start, "^", "<sup>", "</sup>");
+	change_token (new_line, start, "==", "<span bgcolor=\"#594939\">", "</span>");
+	change_token (new_line, start, "~~", "<s>", "</s>");
+	change_token (new_line, start, "~", "<sub>", "</sub>");
+	change_token (new_line, start, "__", "<b>", "</b>");
+	change_token (new_line, start, "_", "<u>", "</u>");
+	change_token (new_line, start, "***", "<b><i>", "</i></b>");
+	change_token (new_line, start, "**", "<b>", "</b>");
+	change_token (new_line, start, "*", "<i>", "</i>");
+	new_line.append ("\n");
+	return line.length;
+}
+
 
 	/** Simple parsing for Label */
 	private string label_parsing (owned string text, bool is_table = false) throws Error {
 		StringBuilder result = new StringBuilder();
-		MatchInfo info;
-		bool is_newline = true;
-		bool is_header = false;
-		bool is_bold = false;
-		bool is_italic = false;
-		bool is_bolditalic = false;
-		bool is_code1 = false;
-		bool is_code2 = false;
-		bool is_highlight = false;
-		bool is_strike = false;
-		bool is_underline = false;
-		bool is_sub = false;
-		bool is_sup = false;
-		bool is_quote = false;
-		bool is_escaped = false;
-		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
-
-		for (int i = 0; text[i] != '\0'; ++i) {
-			// check newline
-			if (i == 0 || text[i - 1] == '\n') {
-				is_newline = true;
-				if (is_header) {
-					result.append("</span>");
-					is_header = false;
-				}
-				is_quote = false;
-			}
-			else
-				is_newline = false;	
-
-			if (i != 0 && text[i - 1] == '\\')
-				is_escaped = true;
-			else
-				is_escaped = false;
 
 
-			// escape me !
-			if (text[i] == '<') {
-				result.append("&lt;");
-				continue;
-			}
-			else if (text[i] == '>') {
-				result.append("&gt;");
-				continue;
-			}
-			if (text[i] == '\\') {
-				if (text[i + 1] == '<') {
-					result.append("&lt;");
-					++i;
-				}
-				else if (text[i + 1] == '>') {
-					result.append("&gt;");
-					++i;
-				}
+		text = text.replace (">", "&gt;");
+		text = text.replace ("<", "&lt;");
+
+		int i = 0;
+		int len_text = text.length;
+		while (i < len_text) {
+			int n = 0;
+			int nl = text.index_of_char ('\n', i);
+
+			if (text.offset(i).has_prefix("# ")) {
+				unowned string begin = text.offset(i);
+				if (begin.has_prefix("## "))
+					result.append("<span size=\"xx-large\">");
+				// else if (begin.has_prefix("## "))
+					// result.append("<span size=\"x-large\">");
+				// else if (begin.has_prefix("### "))
+					// result.append("<span size=\"large\">");
+				// else if (begin.has_prefix("#### "))
+					// result.append("<span size=\"medium\">");
+				// else if (begin.has_prefix("##### "))
+					// result.append("<span size=\"small\">");
+				// else if (begin.has_prefix("###### "))
+					// result.append("<span size=\"x-small\">");
+				result.append_len (text.offset(i + begin.index_of_char (' ')), nl);
+				result.append("</span>\n");
+				i += nl + 1;
 				continue ;
 			}
-
-
-
-			if (is_newline == true) {
-				
-				if (is_table == false && text[i] == '-' && text[i + 1] == ' ') {
-					result.append("• ");
-					i += 2;
-				}
-
-				// HEADER 
-				if (text[i] == '#') {
-					int n = 0;
-					while (text[i + n] == '#')
-						++n;
-					if (text[i + n] == ' ') {
-						is_header = true;
-						switch (n) {
-							case 1:
-								result.append("<span size=\"300%\">");
-								break;
-							case 2:
-								result.append("<span size=\"200%\">");
-								break;
-							case 3:
-								result.append("<span size=\"150%\">");
-								break;
-							case 4:
-								result.append("<span size=\"125%\">");
-								break;
-							case 5:
-								result.append("<span size=\"110%\">");
-								break;
-							case 6:
-								result.append("<span size=\"85%\">");
-								break;
-						}
-						i += n + 1;
-					}
-				}
+			if (nl != -1) {
+				text.data[nl] = '\0';
+				n = append_line(result, text.offset(i));
+				text.data[nl] = '\n';
 			}
-
-			if (regex_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
-				int start_pos, end_pos;
-				info.fetch_pos (0, out start_pos, out end_pos);
-				
-				var name = info.fetch_named("name");
-				var url = info.fetch_named("url");
-				var? title = info.fetch_named("title")?.strip();
-				if (title == null || title == "")
-					result.append_printf ("<a href=\"%s\">%s</a>", url, name);
-				else
-					result.append_printf ("<a href=\"%s\" title=%s>%s</a>", url, title, name);
-				i += end_pos - 1;
-				continue;
-			}
-				// CODE
-			else if (text[i] == '`' && is_escaped == false) {
-				int n = 0;
-				while (text[i + n] == '`')
-					++n;
-				switch (n) {
-					case 1:
-						if (is_code1)
-							result.append("</span>");
-						else
-							result.append("<span bgcolor=\"#292443\">");
-						is_code1 = !is_code1;
-						continue;
-					case 2:
-						if (is_code2)
-							result.append("</span>");
-						else
-							result.append("<span bgcolor=\"#292959\">");
-						is_code2 = !is_code2;
-						i += 1;
-						continue;
-				}
-			}
-
-			if (is_code1 == false && is_code2 == false && is_escaped == false) {
-				// AUTOMATIC LINK
-				if (regex_automatic_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
-					int quote_found = 0;
-					int n = 0;
-					while (text[i + n] != '\0' && text[i + n] != '\n')
-					{
-						if (text[i + n] == '\'')
-							++quote_found;
-						++n;
-					}
-					if (quote_found % 2 == 0 && is_quote == false || is_quote == true && quote_found == 0) 
-					{
-						int start_pos, end_pos;
-						info.fetch_pos (0, out start_pos, out end_pos);
-						var url = info.fetch (0);
-						result.append_printf ("<a href=\"%s\">%s</a>", url, url);
-						i += end_pos - 1;
-						continue;
-					}
-				}
-
-				// BOLD/ITALIC/BOLD_ITALIC
-				if (text[i] == '*') {
-					int n = 0;
-					while (text[i + n] == '*')
-						++n;
-					if (n <= 3) {
-						switch (n) {
-							case 1:
-								if (is_italic)
-									result.append("</i>");
-								else
-									result.append("<i>");
-								is_italic = !is_italic;
-								i += n - 1;
-								continue;
-							case 2:
-								if (is_bold)
-									result.append("</b>");
-								else
-									result.append("<b>");
-								is_bold = !is_bold;
-								i += n - 1;
-								continue;
-							case 3:
-								if (is_bolditalic)
-									result.append("</i></b>");
-								else
-									result.append("<b><i>");
-								is_bolditalic = !is_bolditalic;
-								i += n - 1;
-								continue;
-						}
-					}
-				}
-
-				else if (text[i] == '=' && text[i + 1] == '=' && is_escaped == false) {
-					if (is_highlight)
-						result.append("</span>");
-					else
-						result.append("<span bgcolor=\"#594939\">");
-					is_highlight = !is_highlight;
-					i += 1;
-					continue;
-				}
-
-				else if (text[i] == '~' && is_escaped == false) {
-					int n = 0;
-					while (text[i + n] == '~')
-						++n;
-					switch (n) {
-						case 1:
-							if (is_sub)
-								result.append("</sub>");
-							else
-								result.append("<sub>");
-							is_sub = !is_sub;
-							continue;
-						case 2:
-							if (is_strike)
-								result.append("</s>");
-							else
-								result.append("<s>");
-							is_strike = !is_strike;
-							++i;
-							continue;
-					}
-				}
-
-				else if (text[i] == '^' && text[i + 1] != '^' && is_escaped == false) {
-					if (is_sup)
-						result.append("</sup>");
-					else
-						result.append("<sup>");
-					is_sup = !is_sup;
-					continue;
-				}
-
-				else if (text[i] == '_' && text[i + 1] == '_' && is_escaped == false) {
-					if (is_underline)
-						result.append("</u>");
-					else
-						result.append("<u>");
-					is_underline = !is_underline;
-					++i;
-					continue;
-				}
-
-			}
-
-
-			if (text[i] == '\'' && is_escaped == false) {
-				is_quote = !is_quote;
-			}
-
-
-			result.append_c (text[i]);
-		}
-		if (is_header) {
-			result.append("</span>");
-			is_header = false;
+			i += n + 1;
 		}
 
 
