@@ -237,7 +237,13 @@ public class MarkDown : Gtk.Box {
 		string _url = path_dir + "/" + url; 
 		try {
 			if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
-				var img = new Gif (_url);
+				var img = new Gif (_url) {
+					valign = Align.START,
+					halign = Align.START,
+					hexpand=false,
+					vexpand=false,
+					can_focus = false,
+				};
 				box.append (img);
 				return ;
 			}
@@ -246,10 +252,10 @@ public class MarkDown : Gtk.Box {
 					throw new FileError.EXIST("Image [%s] not found", _url);
 				}
 				Picture img = new Gtk.Picture.for_filename (_url) {
+					valign = Align.START,
 					halign = Align.START,
-					valign = Align.FILL,
-					hexpand= true,
-					vexpand=true,
+					hexpand=false,
+					vexpand=false,
 					can_focus = false,
 					alternative_text = title
 				};
@@ -277,7 +283,7 @@ public class MarkDown : Gtk.Box {
 			halign = Align.START,
 			use_markup = true,
 			selectable = true,
-			hexpand = true,
+			hexpand = false,
 			vexpand = false,
 			wrap = true,
 			can_focus = false
@@ -369,6 +375,11 @@ public class MarkDown : Gtk.Box {
 		bool is_quote = false;
 		bool is_escaped = false;
 		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
+
+		text = text.replace ("<", "&lt;");
+		text = text.replace (">", "&gt;");
+		
+
 
 		for (int i = 0; text[i] != '\0'; ++i) {
 			// check newline
