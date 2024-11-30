@@ -340,8 +340,19 @@ public class MarkDown : Gtk.Box {
 			++i;
 		}
 
+		int max_size_line = 0;
+		unowned string ptr = code;
+		// count the max size of line
+		while (true) {
+			int max = ptr.index_of_char ('\n');
+			if (max == -1)
+				break;
+			if (max > max_size_line)
+				max_size_line = max;
+			ptr = ptr.offset(max + 1);
+		}
 
-		text.set_size_request (300, -1);
+		text.set_size_request (max_size_line * 10, -1);
 
 		box_code.append(new Gtk.Label (line_bar.str) {
 			css_classes = {"line_bar"},
@@ -376,6 +387,7 @@ public class MarkDown : Gtk.Box {
 		bool is_escaped = false;
 		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
 
+		text = text.replace ("&", "&amp;");
 		text = text.replace ("<", "&lt;");
 		text = text.replace (">", "&gt;");
 		
