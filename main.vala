@@ -24,10 +24,6 @@ public class ExampleApp : Gtk.Application {
 					markdown.load_file (cmd);
 				}
 			}
-			// markdown.load_from_file ("/nfs/homes/nda-cunh/.local/share/supravim-gui/Compilation.md");
-			// markdown.clear();
-			// markdown.load_file ("Readme.md");
-
 
 			Viewport viewport = new Viewport (null, null) {
 				child = markdown,
