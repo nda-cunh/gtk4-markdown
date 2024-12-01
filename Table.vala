@@ -3,13 +3,18 @@ using Gtk;
 public class Table : Gtk.Grid {
 	construct {
 		css_classes = {"table"};
+		func = (text) => new Gtk.Label(text);
 	}
 
 	public Table () {
-
+		
 	}
 
-	public Table.from_content (string content) {
+	public Table.from_content (string content, LabelFactory? func = null) {
+		if (func == null)
+			func = (text) => new Gtk.Label(text);
+		else 
+			this.func = func;
 		foreach (unowned var line in content.split("\n")) {
 			if (is_table(line))
 				this.add_line(line);
@@ -19,6 +24,9 @@ public class Table : Gtk.Grid {
 			}
 		}
 	}
+
+	public delegate Gtk.Label LabelFactory(string text, bool is_table) throws Error;
+	public LabelFactory func; 
 
 	private bool is_table(string line) {
 		MatchInfo match_info;
@@ -46,10 +54,37 @@ public class Table : Gtk.Grid {
 			for (int j = 0; j < elems.length; j++) {
 				var elem = elems[j]._strip();
 
-				if (is_header)
-					attach(new Gtk.Label(elem){css_classes={"header_table"}, use_markup=true}, j, i);
-				else
-					attach(new Gtk.Label(elem){css_classes={"table_label"}, use_markup=true, selectable=true, vexpand=true, hexpand=true, halign=Gtk.Align.FILL}, j, i);
+				if (is_header) {
+					try {
+
+					var label = func(elem, true);
+						label.css_classes = {"header_table"};
+						label.halign = Gtk.Align.FILL;
+						label.vexpand = true;
+						label.hexpand = true;
+						label.use_markup = true;
+						attach(label, j, i);
+					}
+					catch (Error e) {
+						print(e.message);
+					}
+				}
+				else {
+					try {
+
+					var label = func(elem, true);
+						label.css_classes = {"table_label"};
+						label.selectable = true;
+						label.vexpand = true;
+						label.hexpand = true;
+						label.halign = Gtk.Align.FILL;
+						label.use_markup = true;
+						attach(label, j, i);
+					}
+					catch (Error e) {
+						printerr(e.message);
+					}
+				}
 			}
 		}
 	}

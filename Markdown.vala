@@ -223,8 +223,7 @@ public class MarkDown : Gtk.Box {
 	}
 
 	private void append_table (string content) throws Error {
-		content = label_parsing (content, true);
-		var table = new Table.from_content (content) {
+		var table = new Table.from_content (content, create_label_markdown) {
 			halign = Align.START,
 			valign = Align.FILL,
 			hexpand= true,
@@ -277,8 +276,9 @@ public class MarkDown : Gtk.Box {
 		
 	public signal bool activate_link (string uri);
 
-	private void append_text (string text) throws Error {
-		text = label_parsing (text);
+	public Gtk.Label create_label_markdown (string text, bool is_table) throws Error {
+		text = label_parsing (text, is_table);
+		print ("Text: %s\n", text);
 		var label = new Gtk.Label (text) {
 			halign = Align.START,
 			use_markup = true,
@@ -291,9 +291,14 @@ public class MarkDown : Gtk.Box {
 		label.activate_link.connect ((uri) => {
 			if (this.activate_link(uri) == false) {
 				try {
-					if (FileUtils.test (path_dir + "/" + uri + ".md", FileTest.EXISTS)) {
+					string markdown_path = uri;
+					if (markdown_path.index_of_char ('#') != -1) {
+						markdown_path = markdown_path[0:markdown_path.index_of_char ('#')];
+					}
+					print ("Markdown path: %s\n\n\n\n", markdown_path);
+					if (FileUtils.test (path_dir + "/" + markdown_path + ".md", FileTest.EXISTS)) {
 						this.clear();
-						this.load_file (path_dir + "/" + uri + ".md");
+						this.load_file (path_dir + "/" + markdown_path + ".md");
 					}
 					else
 						Process.spawn_command_line_async("xdg-open " + uri);
@@ -304,7 +309,11 @@ public class MarkDown : Gtk.Box {
 			}
 			return true;
 		});
+		return label;
+	}
 
+	private void append_text (string text) throws Error {
+		var label = create_label_markdown (text, false);
 		box.append (label);
 	}
 
@@ -390,7 +399,6 @@ public class MarkDown : Gtk.Box {
 		text = text.replace ("&", "&amp;");
 		text = text.replace ("<", "&lt;");
 		text = text.replace (">", "&gt;");
-		
 
 
 		for (int i = 0; text[i] != '\0'; ++i) {
