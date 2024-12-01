@@ -17,6 +17,7 @@ public class MarkDown : Gtk.Box {
 
 	/** Constructor */
 	construct {
+		anchor = new HashTable<string, Gtk.Widget> (str_hash, str_equal);
 		path_dir = Environment.get_current_dir ();
 		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
 		box = general_box;
@@ -60,15 +61,43 @@ public class MarkDown : Gtk.Box {
 		// print ("Time string: %f\n", timer.elapsed());
 	}
 
-	public void load_file (string file) throws Error {
+	Label END;
+	public void load_file (string file, string? tag = null) throws Error {
 		// Timer timer = new Timer ();
 		// timer.reset ();
 		string markdown_text;
 		FileUtils.get_contents (file, out markdown_text);
 		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
+
+		END = new Gtk.Label("END") {
+			can_focus = true,
+			focusable = true,
+			selectable = true,
+		};
+		box.append(END);
+
+		if (tag != null) {
+			Idle.add (() => {
+				var tmp = Gtk.Settings.get_default ().gtk_enable_animations;
+				var tmp2 = Gtk.Settings.get_default ().gtk_overlay_scrolling;
+				Gtk.Settings.get_default ().gtk_enable_animations = false;
+				Gtk.Settings.get_default ().gtk_overlay_scrolling = false;
+				END.focus (DirectionType.LEFT);
+				Idle.add (()=> {
+					anchor[tag].focus (DirectionType.UP);
+					anchor[tag].grab_focus ();
+					return false;
+				}, Priority.LOW);
+				Gtk.Settings.get_default ().gtk_enable_animations = tmp;
+				Gtk.Settings.get_default ().gtk_overlay_scrolling = tmp2;
+				return false;
+			});
+		}
 		// print ("Time file: %f\n", timer.elapsed());
 	}
+
+	public HashTable<string, Gtk.Widget> anchor;
 
 	public void clear () {
 		base.remove (general_box);
@@ -98,6 +127,29 @@ public class MarkDown : Gtk.Box {
 			if (is_nl == false)
 				continue;
 
+			// is an header
+			if (text_md[i] == '#') {
+				int n = 0;
+				while (text_md[i + n] == '#')
+					++n;
+
+				if (text_md[i + n] == ' ') {
+					if (start != i)
+						append_text (text_md[start:i]);
+					int len = text_md.offset(i).index_of_char ('\n');
+					text_md.data[i + len] = '\0';
+					unowned  string header = text_md.offset(i);
+					var label = create_label_markdown (header, false);
+					label.can_focus = true;
+					box.append (label);
+					var header_tag = header.offset(n + 1)._strip();
+					anchor [header_tag] = label;
+					text_md.data[i + len] = '\n';
+					i += len;
+					start = i + 1;
+					continue;
+				}
+			}
 			// Task checkbox parsing
 			if (text_md[i] == '-') {
 				if (regex_task.match(text_md.offset(i), 0, out match_info))
@@ -278,7 +330,6 @@ public class MarkDown : Gtk.Box {
 
 	public Gtk.Label create_label_markdown (string text, bool is_table) throws Error {
 		text = label_parsing (text, is_table);
-		print ("Text: %s\n", text);
 		var label = new Gtk.Label (text) {
 			halign = Align.START,
 			use_markup = true,
@@ -286,19 +337,20 @@ public class MarkDown : Gtk.Box {
 			hexpand = false,
 			vexpand = false,
 			wrap = true,
-			can_focus = false
+			can_focus = true,
 		};
 		label.activate_link.connect ((uri) => {
 			if (this.activate_link(uri) == false) {
 				try {
 					string markdown_path = uri;
+					string? tags = null;
 					if (markdown_path.index_of_char ('#') != -1) {
 						markdown_path = markdown_path[0:markdown_path.index_of_char ('#')];
+						tags = uri[uri.index_of_char ('#') + 1:];
 					}
-					print ("Markdown path: %s\n\n\n\n", markdown_path);
 					if (FileUtils.test (path_dir + "/" + markdown_path + ".md", FileTest.EXISTS)) {
 						this.clear();
-						this.load_file (path_dir + "/" + markdown_path + ".md");
+						this.load_file (path_dir + "/" + markdown_path + ".md", tags);
 					}
 					else
 						Process.spawn_command_line_async("xdg-open " + uri);
