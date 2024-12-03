@@ -70,7 +70,7 @@ public class MarkDown : Gtk.Box {
 		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
 
-		END = new Gtk.Label("END") {
+		END = new Gtk.Label("") {
 			can_focus = true,
 			focusable = true,
 			selectable = true,
@@ -83,16 +83,21 @@ public class MarkDown : Gtk.Box {
 				var tmp2 = Gtk.Settings.get_default ().gtk_overlay_scrolling;
 				Gtk.Settings.get_default ().gtk_enable_animations = false;
 				Gtk.Settings.get_default ().gtk_overlay_scrolling = false;
-				END.focus (DirectionType.LEFT);
-				Idle.add (()=> {
-					anchor[tag].focus (DirectionType.UP);
-					anchor[tag].grab_focus ();
+				END.focus (DirectionType.DOWN);
+				Timeout.add (100, ()=> {
+					debug("Jump to tag: %s\n", tag);
+					if (anchor.contains (tag)) {
+						anchor[tag].focus (DirectionType.UP);
+						anchor[tag].grab_focus ();
+					}
 					return false;
 				}, Priority.LOW);
 				Gtk.Settings.get_default ().gtk_enable_animations = tmp;
 				Gtk.Settings.get_default ().gtk_overlay_scrolling = tmp2;
 				return false;
 			});
+		}
+		else {
 		}
 		// print ("Time file: %f\n", timer.elapsed());
 	}
@@ -108,15 +113,17 @@ public class MarkDown : Gtk.Box {
 	}
 
 
+	private int z_index = 0;
 	/*
 	* principal parsing function
 	* it parse the markdown text and append the result to the actual box
 	*/
-	private void parse (owned string text_md) throws Error {
+	private void parse (owned string text_md) throws Error  {
+		z_index++;
 		MatchInfo match_info;
 		int start_pos, end_pos;
 		int start = 0;
-
+		int len_markdown = text_md.length;
 
 		for (int i = 0; text_md[i] != '\0'; ++i) {
 			bool is_nl;
@@ -126,7 +133,7 @@ public class MarkDown : Gtk.Box {
 				is_nl = (text_md[i - 1] == '\n');
 			if (is_nl == false)
 				continue;
-
+			
 			// is an header
 			if (text_md[i] == '#') {
 				int n = 0;
@@ -134,17 +141,15 @@ public class MarkDown : Gtk.Box {
 					++n;
 
 				if (text_md[i + n] == ' ') {
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 					int len = text_md.offset(i).index_of_char ('\n');
-					text_md.data[i + len] = '\0';
 					unowned  string header = text_md.offset(i);
-					var label = create_label_markdown (header, false);
+					var label = create_label_markdown (header[0:len], false);
 					label.can_focus = true;
 					box.append (label);
-					var header_tag = header.offset(n + 1)._strip();
+					var header_tag = header[n+1:len]._strip();
 					anchor [header_tag] = label;
-					text_md.data[i + len] = '\n';
 					i += len;
 					start = i + 1;
 					continue;
@@ -155,7 +160,7 @@ public class MarkDown : Gtk.Box {
 				if (regex_task.match(text_md.offset(i), 0, out match_info))
 				{
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 					var name = match_info.fetch_named("name");
 					append_checkbox (text_md[i + 3], name);
@@ -181,7 +186,7 @@ public class MarkDown : Gtk.Box {
 			else if (text_md[i] == '!') {
 				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 
 					var name = match_info.fetch_named("name");
@@ -191,14 +196,14 @@ public class MarkDown : Gtk.Box {
 						title = "\"none\"";
 					append_img (name, url, title);
 					i += end_pos;
-					start = i ;
+					start = i;
 				}
 			}
 			// table parsing
 			else if (text_md[i] == '|') {
 				if (regex_table.match(text_md.offset(i - 1), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 					string table = text_md.offset(i)[0:end_pos - 1];
 					append_table (table);
@@ -210,7 +215,7 @@ public class MarkDown : Gtk.Box {
 			else if (text_md[i] == '>') {
 				if (regex_blockquotes.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 					var blockquotes = match_info.fetch (0);
 					append_blockquotes(blockquotes);
@@ -222,7 +227,7 @@ public class MarkDown : Gtk.Box {
 			else if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
 				if (regex_code.match(text_md.offset(i), 0, out match_info)) {
 					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start != i)
+					if (start < i)
 						append_text (text_md[start:i]);
 					var lang = match_info.fetch_named("lang") ?? "none";
 					var code = match_info.fetch_named("code");
@@ -233,7 +238,9 @@ public class MarkDown : Gtk.Box {
 			}
 		}
 
-		append_text (text_md.offset(start));
+		if (start < len_markdown)
+			append_text (text_md.offset(start));	
+		z_index--;
 	}
 
 	private void append_checkbox (char c, string name) {
@@ -267,6 +274,10 @@ public class MarkDown : Gtk.Box {
 			hexpand = false,
 			vexpand = false,
 		};
+		if (z_index > 1) {
+			block_quotes.hexpand = true;
+			block_quotes.halign = Align.FILL;
+		}
 		box.append(block_quotes);
 		box = block_quotes;
 		var parse_me = regex_blockquotes_replace.replace (content, -1, 0, "");
@@ -294,6 +305,7 @@ public class MarkDown : Gtk.Box {
 					hexpand=false,
 					vexpand=false,
 					can_focus = false,
+					focusable = false,
 				};
 				box.append (img);
 				return ;
@@ -308,6 +320,7 @@ public class MarkDown : Gtk.Box {
 					hexpand=false,
 					vexpand=false,
 					can_focus = false,
+					focusable = false,
 					alternative_text = title
 				};
 				img.set_size_request (-1, img.paintable.get_intrinsic_height ());
@@ -338,6 +351,7 @@ public class MarkDown : Gtk.Box {
 			vexpand = false,
 			wrap = true,
 			can_focus = true,
+			focusable = false,
 		};
 		label.activate_link.connect ((uri) => {
 			if (this.activate_link(uri) == false) {
@@ -387,6 +401,7 @@ public class MarkDown : Gtk.Box {
 			hexpand=true,
 			vexpand=true,
 			can_focus = false,
+			focusable = false,
 		};
 
 		// Count line
@@ -429,7 +444,8 @@ public class MarkDown : Gtk.Box {
 
 
 	/** Simple parsing for Label */
-	private string label_parsing (owned string text, bool is_table = false) throws Error {
+	private string label_parsing (string text_param, bool is_table = false) throws Error {
+		var text = text_param;
 		StringBuilder result = new StringBuilder();
 		MatchInfo info;
 		bool is_newline = true;
