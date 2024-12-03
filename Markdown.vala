@@ -62,7 +62,17 @@ public class MarkDown : Gtk.Box {
 	}
 
 	Label END;
-	public void load_file (string file, string? tag = null) throws Error {
+	public void load_file (owned string file, owned string? tag = null) throws Error {
+		string uri = Path.get_basename (file);
+		string markdown_path = uri;
+		if (markdown_path.index_of_char ('#') != -1) {
+			markdown_path = markdown_path[0:markdown_path.index_of_char ('#')];
+			tag = uri[uri.index_of_char ('#') + 1:];
+			if (file.has_suffix (".md"))
+				file = file[0:file.index_of_char ('#')] + ".md";
+			else
+				file = file[0:file.index_of_char ('#')];
+		}
 		// Timer timer = new Timer ();
 		// timer.reset ();
 		string markdown_text;
@@ -85,13 +95,13 @@ public class MarkDown : Gtk.Box {
 				Gtk.Settings.get_default ().gtk_overlay_scrolling = false;
 				END.focus (DirectionType.DOWN);
 				Timeout.add (100, ()=> {
-					debug("Jump to tag: %s\n", tag);
+					debug("b: Jump to tag: %s\n", tag);
 					if (anchor.contains (tag)) {
 						anchor[tag].focus (DirectionType.UP);
 						anchor[tag].grab_focus ();
 					}
 					return false;
-				}, Priority.LOW);
+				});
 				Gtk.Settings.get_default ().gtk_enable_animations = tmp;
 				Gtk.Settings.get_default ().gtk_overlay_scrolling = tmp2;
 				return false;
@@ -99,6 +109,7 @@ public class MarkDown : Gtk.Box {
 		}
 		else {
 		}
+
 		// print ("Time file: %f\n", timer.elapsed());
 	}
 
@@ -147,6 +158,7 @@ public class MarkDown : Gtk.Box {
 					unowned  string header = text_md.offset(i);
 					var label = create_label_markdown (header[0:len], false);
 					label.can_focus = true;
+					label.focusable = true;
 					box.append (label);
 					var header_tag = header[n+1:len]._strip();
 					anchor [header_tag] = label;
@@ -465,7 +477,9 @@ public class MarkDown : Gtk.Box {
 		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
 
 		text = text.replace ("&", "&amp;");
+		text = text.replace ("\\<", "&lt;");
 		text = text.replace ("<", "&lt;");
+		text = text.replace ("\\>", "&gt;");
 		text = text.replace (">", "&gt;");
 
 
