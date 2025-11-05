@@ -1,0 +1,61 @@
+
+
+.code_box {
+	background-color: @insensitive_base_color;
+	border : solid 1px @theme_fg_color;
+}
+.code_box textview {
+	margin-top:5px;
+	margin-right:5px;
+	padding-left:10px;
+	background-color: @insensitive_base_color;
+	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.15);
+}
+.line_bar {
+	background-color: mix(@theme_fg_color, @theme_bg_color, 0.09);
+	color: @theme_bg_color;
+	padding-right: 10px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	border: 0px;
+}
+
+.blockquotes {
+	background-color: @insensitive_base_color;
+	border-left: 7px solid #aaa;
+	padding-top: 10px;
+	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.09);
+	margin-right:-50px;
+	padding-right:50px;
+	padding-bottom: 0px;
+	padding-left : 8px;
+}
+
+.table {
+	border: solid 1px @theme_fg_color;
+	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.15);
+}
+
+.table .table_label {
+	padding-right: 10px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	background-color: @insensitive_base_color;
+	border: solid 0.6px @theme_fg_color;
+	color: @theme_fg_color;
+
+}
+
+.table .header_table {
+	color: @theme_fg_color;
+	font-weight: bold;
+	padding-right: 20px;
+	padding-left: 20px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	border: solid 1px @theme_fg_color;
+	background-color: mix(@theme_bg_color, @theme_fg_color, 0.01);
+}
+
