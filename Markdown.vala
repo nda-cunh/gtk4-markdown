@@ -17,7 +17,7 @@ public class Markdown : Gtk.Box {
 			regex_link = new Regex("""^\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
 			regex_table = new Regex("""(?:\|[^\n]*\n)+""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
 			regex_code = new Regex("""```.*?```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-			regex_blockquote = new Regex("""(?:>.*(?:\n|$)(?:\n(?![^\>]))?)""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+			regex_blockquote = new Regex("""([>]\s+.+?\n)+""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
 
 
 		}
@@ -73,50 +73,53 @@ public class Markdown : Gtk.Box {
 		while (i < len) {
 			bool line_start = (i == 0) || (str[i - 1] == '\n');
 
+			// NOTE Horizontal Rule ---
 			if (line_start && i + 2 < len && str[i] == '-' && str[i + 1] == '-' && str[i + 2] == '-') {
-				// Ajoute le texte précédent
-				if (i > segment_start)
-					result.append(new MarkdownElement(str[segment_start: i], MarkdownElement.Type.TEXT));
 
-				result.append(new MarkdownElement("---", MarkdownElement.Type.SEPARATOR));
+				if (i > segment_start)
+					result.append(new MarkdownElementText(str[segment_start: i]));
+
+				result.append(new MarkdownElementSeparator());
 				i += 3;
 				segment_start = i;
 				continue;
 			}
 
+			// NOTE Blockquote > text
 			if (line_start && str[i] == '>' && (i + 1 < len && (str[i + 1] == ' ' || str[i + 1] != '\n'))) {
 				MatchInfo info;
 				if (regex_blockquote.match(str.offset(i), RegexMatchFlags.ANCHORED, out info)) {
 					int start_pos, end_pos;
 					info.fetch_pos(0, out start_pos, out end_pos);
 
-					// Ajoute le texte précédent
 					if (i > segment_start)
-						result.append(new MarkdownElement(str[segment_start: i], MarkdownElement.Type.TEXT));
-					result.append(new MarkdownElement(str[i: i + end_pos], MarkdownElement.Type.BLOCKQUOTE));
+						result.append(new MarkdownElementText(str[segment_start: i]));
+
+					result.append(new MarkdownElementBlockquote(str[i: i + end_pos]));
 					i += end_pos;
 					segment_start = i;
 					continue;
 				}
 			}
 
-			// Code block  ```lang text```
+			// NOTE Code block  ```lang text```
 			if (line_start && i + 2 < len && str[i] == '`' && str[i + 1] == '`' && str[i + 2] == '`') {
 				MatchInfo info;
 				if (regex_code.match(str.offset(i), RegexMatchFlags.ANCHORED, out info)) {
 					int start_pos, end_pos;
 					info.fetch_pos(0, out start_pos, out end_pos);
 
-					// Ajoute le texte précédent
 					if (i > segment_start)
-						result.append(new MarkdownElement(str[segment_start: i], MarkdownElement.Type.TEXT));
-					result.append(new MarkdownElement(str[i: i + end_pos], MarkdownElement.Type.CODEBLOCK));
+						result.append(new MarkdownElementText(str[segment_start: i]));
+					result.append(new MarkdownElementCodeBlock(str[i: i + end_pos]));
+
 					i += end_pos;
 					segment_start = i;
 					continue;
 				}
 			}
 
+			// NOTE table | Foo | Bar |
 			if (line_start && str[i] == '|') {
 				MatchInfo info;
 				if (regex_table.match(str.offset(i), RegexMatchFlags.ANCHORED, out info)) {
@@ -124,28 +127,27 @@ public class Markdown : Gtk.Box {
 					info.fetch_pos(0, out start_pos, out end_pos);
 					print ("\n\n\n\n\n\nTable found at positions %d to %d\n", start_pos, end_pos);
 
-					// Ajoute le texte précédent
 					if (i > segment_start)
-						result.append(new MarkdownElement(str[segment_start: i], MarkdownElement.Type.TEXT));
+						result.append(new MarkdownElementText(str[segment_start: i]));
 
-					result.append(new MarkdownElement(str[i: i + end_pos], MarkdownElement.Type.TABLE));
+					result.append(new MarkdownElementTable(str[i: i + end_pos]));
 					i += end_pos;
 					segment_start = i;
 					continue;
 				}
 			}
 
+			// NOTE Image ![alt](url "title")
 			if (str[i] == '!') {
 				MatchInfo info;
 				if (regex_image.match(str.offset(i), RegexMatchFlags.ANCHORED, out info)) {
 					int start_pos, end_pos;
 					info.fetch_pos(0, out start_pos, out end_pos);
 
-					// Ajoute le texte précédent
 					if (i > segment_start)
-						result.append(new MarkdownElement(str[segment_start: i], MarkdownElement.Type.TEXT));
+						result.append(new MarkdownElementText(str[segment_start: i]));
 
-					result.append(new MarkdownElement(str[i: i + end_pos], MarkdownElement.Type.IMAGE));
+					result.append(new MarkdownElementImage(str[i: i + end_pos], info));
 					i += end_pos;
 					segment_start = i;
 					continue;
@@ -157,7 +159,7 @@ public class Markdown : Gtk.Box {
 		}
 
 		if (segment_start < len)
-			result.append(new MarkdownElement(str[segment_start: len], MarkdownElement.Type.TEXT));
+			result.append(new MarkdownElementText(str[segment_start: len]));
 
 		return result;
 	}

@@ -8,8 +8,8 @@ public class MarkdownEmphasis {
 	}
 
 	public Type type;
-	public int start_index;
-	public int size; // Used only for SIZE type
+	public int start_index {get; private set;}
+	public int size {get; private set;}
 
 	public MarkdownEmphasis (Type type, int start_index, int size) {
 		this.type = type;
