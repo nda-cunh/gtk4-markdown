@@ -15,6 +15,7 @@ public abstract class MDNode {
 			case "`": return new MDInlineCode();
 			case "*": return new MDItalic();
 			case "_": return new MDItalic();
+			case "==": return new MDhighlight();
 			default:
 				error("Unknown MDNode type: %s", type);
 		}
@@ -102,6 +103,10 @@ public class MDStrike : MDNode {
 // Represents inline code text: `
 public class MDInlineCode : MDNode {
 	public override unowned string get_type_name() { return "InlineCode"; }
+}
+
+public class MDhighlight : MDNode {
+	public override unowned string get_type_name() { return "Highlight"; }
 }
 
 // Represents a list node (ordered or unordered)

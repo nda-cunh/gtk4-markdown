@@ -18,7 +18,8 @@ public class Markdown : Gtk.Box {
 			regex_table = new Regex("""(?:\|[^\n]*\n)+""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
 
 			// TODO a reparer
-			regex_code = new Regex("""```(?P<lang>[^ ]+)?\n(?P<code>.*?)```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+			regex_code = new Regex("""[`]{3}(?P<lang>[^\s\n]*)?\n(?P<code>.*?)[`]{3}""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
+
 			regex_blockquote = new Regex("""([>]\s+.+?\n)+""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
 		}
 		catch (Error e) {
@@ -66,16 +67,28 @@ public class Markdown : Gtk.Box {
 			bool line_start = (i == 0) || (str[i - 1] == '\n');
 
 			// NOTE Horizontal Rule ---
-			if (line_start && i + 2 < len && str[i] == '-' && str[i + 1] == '-' && str[i + 2] == '-') {
+			if (line_start && str[i] == '-') {
+				int dash_count = 0;
+				while (i < len && str[i] == '-') {
+					dash_count++;
+					i++;
+				}
 
-				if (i > segment_start)
-					result.append(new MarkdownElementText(str[segment_start: i]));
+				// Vérifiez si c'est une ligne horizontale (au moins 3 tirets)
+				if (dash_count >= 3 && (i == len || str[i] == '\n')) {
+					if (segment_start < i - dash_count) {
+						result.append(new MarkdownElementText(str[segment_start: i - dash_count]));
+					}
 
-				result.append(new MarkdownElementSeparator());
-				i += 3;
-				segment_start = i;
-				continue;
+					result.append(new MarkdownElementSeparator());
+					segment_start = i;
+					continue;
+				} else {
+					// Si ce n'est pas une ligne horizontale, revenez en arrière
+					i -= dash_count;
+				}
 			}
+
 
 			// NOTE Blockquote > text
 			if (line_start && str[i] == '>' && (i + 1 < len && (str[i + 1] == ' ' || str[i + 1] != '\n'))) {

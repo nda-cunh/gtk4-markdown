@@ -69,6 +69,11 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 		list.append( new MarkdownEmphasisHeader (begin, (end - begin), node.level));
 		sb.append("\n");
 	}
+	else if (node is MDhighlight) {
+		segment(sb, ref list, node, out begin, out end);
+		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.HIGHLIGHT, begin, (end - begin)) );
+		sb.append("\n");
+	}
 	else if (node is MDListNode) {
 		unowned MDListNode list_node = node as MDListNode;
 		if (list_node.list_type == MDListNode.ListType.ORDERED)
@@ -119,8 +124,28 @@ private Gtk.Label parse (uint8[] str) {
 			case MarkdownEmphasis.Type.STRIKE:
 				LabelExt.add_strike(label, attr.start_index, attr.start_index + attr.size);
 				break;
+			case MarkdownEmphasis.Type.HIGHLIGHT:
+				Gdk.RGBA color = { 0.7f, 0.7f, 0.1f, 0.3f }; // semi-transparent yellow
+				LabelExt.add_highlight(label, attr.start_index, attr.start_index + attr.size, color);
+				break;
 			case MarkdownEmphasis.Type.BLOCK_CODE:
-				LabelExt.add_highlight(label, attr.start_index, attr.start_index + attr.size, {0.4f, 0.4f, 0.4f});
+				Gdk.RGBA colorbg = { 0.95f, 0.95f, 0.95f, 1.0f };
+				Gdk.RGBA colorfg = { 0.2f, 0.2f, 0.2f, 1.0f };
+				// TODO for light and dark themes
+				// Gtk.StyleContext context = label.get_style_context();
+				// context.lookup_color("theme_text_color", out colorfg);
+				// context.lookup_color("theme_bg_color", out colorbg);
+				var begin = attr.start_index;
+				var end = begin + attr.size;
+
+				LabelExt.apply_syntax_color(label, begin, end, colorfg);
+				LabelExt.add_highlight(label, begin, end, colorbg);
+				LabelExt.add_bold(label, begin, end);
+				LabelExt.add_line_height(label, begin, end, 1.4f);
+				LabelExt.set_monospace(label, begin, end);
+
+				// LabelExt.add_letter_spacing(label, begin, begin, 81103);
+				// LabelExt.add_letter_spacing(label, end - 1, end, 81103);
 				break;
             default:
                 break;
