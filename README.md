@@ -1,6 +1,8 @@
 # Markdown Gtk4
 ---------------
 
+/!\ I'm actualy rewriting this project. The new version will be available soon.
+
 This is a simple markdown viewer written in Vala with Gtk4.
 
 ## Features
@@ -8,11 +10,12 @@ This is a simple markdown viewer written in Vala with Gtk4.
 ### Basic Syntax 
 - [x] Headings
 - [x] Paragraphs
-- [x] Emphasis (italics, bold, strikethrough, underline)
+- [x] Emphasis (italics, bold, underline)
 - [ ] Blockquotes
 - [x] Lists
 - [x] Code
 - [x] Code blocks (no color highlighting)
+- [ ] Line breaks (<br>)
 - [ ] Links
 - [x] Images
 - [x] Horizontal rules
@@ -28,5 +31,5 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs
 - [ ] Definition Lists
-- [ ] Strikethrough
+- [x] Strikethrough
 - [ ] Emoji
