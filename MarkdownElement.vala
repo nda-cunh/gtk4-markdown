@@ -12,5 +12,5 @@ public abstract class MarkdownElement {
 	public string content {get ; protected set; }
 	public Type type; 
 
-	public abstract void getwidget();
+	public abstract Gtk.Widget? getwidget();
 }

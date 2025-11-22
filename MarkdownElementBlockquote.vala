@@ -5,6 +5,7 @@ public class MarkdownElementBlockquote : MarkdownElement {
 		type = Type.BLOCKQUOTE;
 	}
 
-	public override void getwidget() {
+	public override Gtk.Widget? getwidget() {
+		return null;
 	}
 }
