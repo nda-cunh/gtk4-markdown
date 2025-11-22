@@ -39,9 +39,11 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 		sb.append(node.text);
 	}
 	else if (node is MDParagraph) {
+		// draw a new line after a paragraph but not if it's the end of paragraph
 		foreach (unowned var child in node.children)
 			my_render_node(child, sb, ref list);
-		sb.append("\n");
+		if (((MDParagraph)node).is_end == false)
+			sb.append("\n");
 	}
 	else if (node is MDBold) {
 		segment(sb, ref list, node, out begin, out end);
@@ -65,6 +67,7 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.ITALIC, begin, (end - begin)) );
 	}
 	else if (node is MDHeader) {
+		sb.append("\n");
 		segment(sb, ref list, node, out begin, out end);
 		list.append( new MarkdownEmphasisHeader (begin, (end - begin), node.level));
 		sb.append("\n");
@@ -72,7 +75,6 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 	else if (node is MDhighlight) {
 		segment(sb, ref list, node, out begin, out end);
 		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.HIGHLIGHT, begin, (end - begin)) );
-		sb.append("\n");
 	}
 	else if (node is MDListNode) {
 		unowned MDListNode list_node = node as MDListNode;
@@ -141,7 +143,7 @@ private Gtk.Label parse (uint8[] str) {
 				LabelExt.apply_syntax_color(label, begin, end, colorfg);
 				LabelExt.add_highlight(label, begin, end, colorbg);
 				LabelExt.add_bold(label, begin, end);
-				LabelExt.add_line_height(label, begin, end, 1.4f);
+				LabelExt.add_line_height(label, begin, end, 1.1f);
 				LabelExt.set_monospace(label, begin, end);
 
 				// LabelExt.add_letter_spacing(label, begin, begin, 81103);

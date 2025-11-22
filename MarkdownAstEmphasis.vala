@@ -31,6 +31,9 @@ public class MarkdownParser {
             }
 
             var p = new MDParagraph();
+			// if it's the last paragrap set it to p.is_end = true
+			if (pos >= len)
+				p.is_end = true;
             parse_inline(line, p);
             doc.children.append(p);
         }

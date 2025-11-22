@@ -12,6 +12,8 @@ public class Markdown : Gtk.Box {
 
 	construct {
 		orientation = Gtk.Orientation.VERTICAL;
+		hexpand = true;
+		vexpand = true;
 		try {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.OPTIMIZE);
 			regex_link = new Regex("""^\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
@@ -47,8 +49,11 @@ public class Markdown : Gtk.Box {
 
 		foreach (unowned var i in lst) {
 			var? w = i.getwidget ();
-			if (w != null)
+			if (w != null) {
 				append(w);
+				// // just append a new line
+				// append(new Gtk.Label("\n") { halign = Align.START, });
+			}
 		}
 
 	}

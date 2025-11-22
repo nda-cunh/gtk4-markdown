@@ -83,6 +83,7 @@ public class MDDocument : MDNode {
 // Represents a paragraph node
 public class MDParagraph : MDNode {
 	public override unowned string get_type_name() { return "Paragraph"; }
+	public bool is_end = false;
 }
 // Represents bold text: **
 public class MDBold : MDNode {
