@@ -122,6 +122,11 @@ public class MarkdownParser {
 				continue;
 			if (process_inline_token("`", line, parent, ref i))
 				continue;
+			if (process_inline_token("~", line, parent, ref i))
+				continue;
+			if (process_inline_token("^", line, parent, ref i))
+				continue;
+
 
 			// List unonordered
 			if ( i == 0
@@ -174,7 +179,7 @@ public class MarkdownParser {
 	 */
     private int next_markup_pos (string line, int start) {
         int best = -1;
-        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "=="};
+        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^"};
         foreach (unowned var tok in tokens) {
             int p = line.index_of(tok, start);
             if (p == -1) continue;

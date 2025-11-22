@@ -6,6 +6,8 @@ public class MarkdownEmphasis {
 		STRIKE,
 		BLOCK_CODE,
 		HIGHLIGHT,
+		SUBSCRIPT,
+		SUPERSCRIPT,
 		HEADER
 	}
 

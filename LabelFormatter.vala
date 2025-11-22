@@ -61,6 +61,14 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 		segment(sb, ref list, node, out begin, out end);
 		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.BLOCK_CODE, begin, (end - begin)) );
 	}
+	else if (node is MDSuperscript) {
+		segment(sb, ref list, node, out begin, out end);
+		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.SUPERSCRIPT, begin, (end - begin)) );
+	}
+	else if (node is MDSubscript) {
+		segment(sb, ref list, node, out begin, out end);
+		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.SUBSCRIPT, begin, (end - begin)) );
+	}
 	else if (node is MDItalicBold) {
 		segment(sb, ref list, node, out begin, out end);
 		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.BOLD, begin, (end - begin)) );
@@ -129,6 +137,14 @@ private Gtk.Label parse (uint8[] str) {
 			case MarkdownEmphasis.Type.HIGHLIGHT:
 				Gdk.RGBA color = { 0.7f, 0.7f, 0.1f, 0.3f }; // semi-transparent yellow
 				LabelExt.add_highlight(label, attr.start_index, attr.start_index + attr.size, color);
+				break;
+			case MarkdownEmphasis.Type.SUPERSCRIPT:
+				LabelExt.add_superscript(label, attr.start_index, attr.start_index + attr.size);
+				LabelExt.set_size(label, attr.start_index, attr.start_index + attr.size, 7);
+				break;
+			case MarkdownEmphasis.Type.SUBSCRIPT:
+				LabelExt.add_subscript(label, attr.start_index, attr.start_index + attr.size);
+				LabelExt.set_size(label, attr.start_index, attr.start_index + attr.size, 7);
 				break;
 			case MarkdownEmphasis.Type.BLOCK_CODE:
 				Gdk.RGBA colorbg = { 0.95f, 0.95f, 0.95f, 1.0f };

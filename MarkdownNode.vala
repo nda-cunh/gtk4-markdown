@@ -16,6 +16,9 @@ public abstract class MDNode {
 			case "*": return new MDItalic();
 			case "_": return new MDItalic();
 			case "==": return new MDhighlight();
+			case "~": return new MDSubscript();
+			case "^": return new MDSuperscript();
+
 			default:
 				error("Unknown MDNode type: %s", type);
 		}
@@ -108,6 +111,14 @@ public class MDInlineCode : MDNode {
 
 public class MDhighlight : MDNode {
 	public override unowned string get_type_name() { return "Highlight"; }
+}
+
+public class MDSubscript : MDNode {
+	public override unowned string get_type_name() { return "Subscript"; }
+}
+
+public class MDSuperscript : MDNode {
+	public override unowned string get_type_name() { return "Superscript"; }
 }
 
 // Represents a list node (ordered or unordered)

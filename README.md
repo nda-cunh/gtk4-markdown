@@ -21,8 +21,8 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Tables
 - [ ] Task Lists
 - [x] Highlight
-- [ ] Subscript
-- [ ] Superscript
+- [x] Subscript
+- [x] Superscript
 - [ ] Automatic URL Linking
 - [ ] Footnotes
 - [ ] Heading IDs

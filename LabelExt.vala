@@ -98,6 +98,22 @@ namespace LabelExt {
 		attrs.insert ((owned)attr);
 	}
 
+	public void add_superscript(Gtk.Label label, int start_index, int end_index) {
+		var attrs = get_attributes_list (label);
+		var attr = Pango.attr_baseline_shift_new( Pango.BaselineShift.SUPERSCRIPT);
+		attr.start_index = start_index;
+		attr.end_index = end_index;
+		attrs.insert ((owned)attr);
+	}
+
+	public void add_subscript(Gtk.Label label, int start_index, int end_index) {
+		var attrs = get_attributes_list (label);
+		var attr = Pango.attr_baseline_shift_new( Pango.BaselineShift.SUBSCRIPT);
+		attr.start_index = start_index;
+		attr.end_index = end_index;
+		attrs.insert ((owned)attr);
+	}
+
 	public void set_size(Gtk.Label label, int start_index, int end_index, int size) {
 		var attrs = get_attributes_list (label);
 		var font_desc = new Pango.FontDescription();
