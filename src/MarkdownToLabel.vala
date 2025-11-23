@@ -150,12 +150,17 @@ private Gtk.Label parse (uint8[] str) {
 				LabelExt.set_size(label, attr.start_index, attr.start_index + attr.size, 7);
 				break;
 			case MarkdownEmphasis.Type.BLOCK_CODE:
-				Gdk.RGBA colorbg = { 0.95f, 0.95f, 0.95f, 1.0f };
-				Gdk.RGBA colorfg = { 0.2f, 0.2f, 0.2f, 1.0f };
-				// TODO for light and dark themes
-				// Gtk.StyleContext context = label.get_style_context();
-				// context.lookup_color("theme_text_color", out colorfg);
-				// context.lookup_color("theme_bg_color", out colorbg);
+				Gdk.RGBA colorbg;
+				Gdk.RGBA colorfg;
+				Gtk.StyleContext context = label.get_style_context();
+				context.lookup_color("theme_text_color", out colorfg);
+				context.lookup_color("theme_bg_color", out colorbg);
+				colorbg.red += 0.09f;
+				colorbg.green += 0.09f;
+				colorbg.blue += 0.09f;
+				colorbg.alpha = 0.3f;
+				colorfg.alpha = 0.7f;
+
 				var begin = attr.start_index;
 				var end = begin + attr.size;
 

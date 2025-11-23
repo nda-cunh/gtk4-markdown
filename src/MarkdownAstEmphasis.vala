@@ -95,6 +95,27 @@ public class MarkdownParser {
 	}
 
 
+	private bool process_html_inline_tag (string line, MDNode parent, string tag, ref int i) {
+		string open_tag = "<" + tag + ">";
+		string close_tag = "</" + tag + ">";
+		if (starts_with(line, i, open_tag)) {
+			int close = find_closing(line, i + open_tag.length, close_tag);
+			if (close >= 0) {
+				string inside = line.substring(i + open_tag.length, close - (i + open_tag.length));
+				var node = MDNode.new_from_type(tag);
+				parse_inline((owned)inside, node);
+				parent.children.append(node);
+				i = close + close_tag.length;
+			}
+			else {
+				parent.children.append(new MDText(open_tag));
+				i += open_tag.length; 
+			}
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Parses inline markdown elements in the given line and appends them to the parent node.
 	 * Supports **bold**, *italic*, ~~strikethrough~~, and `inline code`.
@@ -113,12 +134,6 @@ public class MarkdownParser {
 				continue;
 			}
 
-			if (starts_with(line, i, "\\<br>")) {
-				parent.children.append(new MDText("<br>"));
-				i += 5;
-				continue;
-			}
-
 			if (line[i] == '\\' && i + 1 < len) {
 				const char []lst_allowed = {'\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '#', '+', '-', '.', '!', '|'};
 				if (line[i + 1] in lst_allowed) {
@@ -127,6 +142,35 @@ public class MarkdownParser {
 					continue;
 				}
 			}
+			// HTML-like inline tags
+
+			if (line[i] == '<') {
+				if (process_html_inline_tag(line, parent, "i", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "b", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "u", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "s", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "strong", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "em", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h1", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h2", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h3", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h4", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h5", ref i))
+					continue;
+				if (process_html_inline_tag(line, parent, "h6", ref i))
+					continue;
+			}
+
 
 			if (process_inline_token("==", line, parent, ref i))
 				continue;
@@ -201,7 +245,7 @@ public class MarkdownParser {
 	 */
     private int next_markup_pos (string line, int start) {
         int best = -1;
-        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>", "\\"};
+        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>", "\\", "<i>", "</i>", "<b>", "</b>", "<u>", "</u>", "<s>", "</s>", "<strong>", "</strong>", "<em>", "</em>", "<h1>", "</h1>", "<h2>", "</h2>", "<h3>", "</h3>", "<h4>", "</h4>", "<h5>", "</h5>", "<h6>", "</h6>"};
         foreach (unowned var tok in tokens) {
             int p = line.index_of(tok, start);
             if (p == -1) continue;

@@ -18,9 +18,20 @@ public abstract class MDNode {
 			case "==": return new MDhighlight();
 			case "~": return new MDSubscript();
 			case "^": return new MDSuperscript();
-
+			case "strong": return new MDBold();
+			case "b": return new MDBold();
+			case "em": return new MDItalic();
+			case "i": return new MDItalic();
+			case "s": return new MDStrike();
+			case "h1": return new MDHeader(1);
+			case "h2": return new MDHeader(2);
+			case "h3": return new MDHeader(3);
+			case "h4": return new MDHeader(4);
+			case "h5": return new MDHeader(5);
+			case "h6": return new MDHeader(6);
 			default:
-				error("Unknown MDNode type: %s", type);
+				warning("Unknown MDNode type: %s", type);
+				return new MDText("<unknown node type>");
 		}
 	}
 
