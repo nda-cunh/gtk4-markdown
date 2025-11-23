@@ -72,9 +72,10 @@ public class Markdown : Gtk.Box {
 			bool line_start = (i == 0) || (str[i - 1] == '\n');
 
 			// NOTE Horizontal Rule ---
-			if (line_start && str[i] == '-') {
+			if (line_start && str[i] == '-' || str[i] == '*' || str[i] == '_') {
+				char c = str[i];
 				int dash_count = 0;
-				while (i < len && str[i] == '-') {
+				while (i < len && str[i] == c) {
 					dash_count++;
 					i++;
 				}
