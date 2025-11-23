@@ -80,6 +80,9 @@ private void my_render_node(MDNode node, StringBuilder sb, ref List<MarkdownEmph
 		list.append( new MarkdownEmphasisHeader (begin, (end - begin), node.level));
 		sb.append("\n");
 	}
+	else if (node is MDLineBreak) {
+		sb.append("\n");
+	}
 	else if (node is MDhighlight) {
 		segment(sb, ref list, node, out begin, out end);
 		list.append( new MarkdownEmphasis (MarkdownEmphasis.Type.HIGHLIGHT, begin, (end - begin)) );

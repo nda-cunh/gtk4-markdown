@@ -15,7 +15,7 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Lists
 - [x] Code
 - [x] Code blocks (no color highlighting)
-- [ ] Line breaks (<br>)
+- [x] Line breaks (<br>)
 - [ ] Links
 - [x] Images
 - [x] Horizontal rules

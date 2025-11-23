@@ -121,6 +121,10 @@ public class MDSuperscript : MDNode {
 	public override unowned string get_type_name() { return "Superscript"; }
 }
 
+public class MDLineBreak : MDNode {
+	public override unowned string get_type_name() { return "LineBreak"; }
+}
+
 // Represents a list node (ordered or unordered)
 public class MDListNode : MDNode {
 	public override unowned string get_type_name() { return "List"; }
