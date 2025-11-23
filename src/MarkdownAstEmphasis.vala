@@ -112,6 +112,22 @@ public class MarkdownParser {
 				i += 4;
 				continue;
 			}
+
+			if (starts_with(line, i, "\\<br>")) {
+				parent.children.append(new MDText("<br>"));
+				i += 5;
+				continue;
+			}
+
+			if (line[i] == '\\' && i + 1 < len) {
+				const char []lst_allowed = {'\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '#', '+', '-', '.', '!', '|'};
+				if (line[i + 1] in lst_allowed) {
+					parent.children.append(new MDText(line[i + 1].to_string()));
+					i += 2;
+					continue;
+				}
+			}
+
 			if (process_inline_token("==", line, parent, ref i))
 				continue;
 			if (process_inline_token("___", line, parent, ref i))
@@ -185,7 +201,7 @@ public class MarkdownParser {
 	 */
     private int next_markup_pos (string line, int start) {
         int best = -1;
-        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>"};
+        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>", "\\"};
         foreach (unowned var tok in tokens) {
             int p = line.index_of(tok, start);
             if (p == -1) continue;
