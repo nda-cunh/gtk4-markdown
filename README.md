@@ -12,12 +12,12 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Paragraphs
 - [x] Line breaks
 - [x] Emphasis (italics, bold, underline)
-- [ ] Blockquotes
+- [x] Blockquotes
 - [x] Lists
-- [ ] Code
+- [x] Code
 - [x] Code blocks
 - [x] Horizontal rules
-- [ ] Links
+- [x] Links
 - [x] Images
 - [x] Escaping characters
 
@@ -27,7 +27,7 @@ This is a simple markdown viewer written in Vala with Gtk4.
 - [x] Highlight
 - [x] Subscript
 - [x] Superscript
-- [ ] Automatic URL Linking
+- [x] Automatic URL Linking
 - [ ] Footnotes
 - [ ] Heading IDs
 - [ ] Linking to Heading IDs

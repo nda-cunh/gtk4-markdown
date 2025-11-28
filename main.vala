@@ -11,7 +11,7 @@ public class ExampleApp : Adw.Application {
 			Intl.setlocale ();
 			var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 			var winscroll = new Gtk.ScrolledWindow ();
-			var markdown = new Markdown ("/home/nda-cunh/.local/share/supravim-gui/Customisation.md") {
+			var markdown = new Markdown ("/home/nda-cunh/.local/share/supravim-gui/home.md") {
 				margin_top = 12,
 				margin_bottom = 12,
 				margin_start = 12,
@@ -22,8 +22,7 @@ public class ExampleApp : Adw.Application {
 			winscroll.width_request = 600;
 			winscroll.height_request = 800;
 
-			box.append (new Adw.HeaderBar () {
-			});
+			box.append (new Adw.HeaderBar () {});
 			box.append (winscroll);
 
 			win.content = box;

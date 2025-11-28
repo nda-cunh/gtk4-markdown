@@ -1,63 +1,55 @@
 namespace LabelExt {
 
-	internal Pango.AttrList get_attributes_list (Gtk.Label label) {
-		var attrs = label.get_attributes ();
-		if (attrs == null)
-			attrs = new Pango.AttrList ();
-		label.set_attributes (attrs);
-		return attrs;
-	}
-
-	public void add_bold(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_bold(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_weight_new(Pango.Weight.BOLD);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_italic(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_italic(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_style_new(Pango.Style.ITALIC);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 	
-	public void add_line_height(Gtk.Label label, int start_index, int end_index, float scale) {
-		var attrs = get_attributes_list (label);
+	public void add_line_height(SupraLabel label, int start_index, int end_index, float scale) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_line_height_new(scale);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_letter_spacing(Gtk.Label label, int start_index, int end_index, int spacing) {
-		var attrs = get_attributes_list (label);
+	public void add_letter_spacing(SupraLabel label, int start_index, int end_index, int spacing) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_letter_spacing_new(spacing);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_underline(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_underline(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_underline_new(Pango.Underline.SINGLE);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_strike(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_strike(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_strikethrough_new(true);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void apply_syntax_color(Gtk.Label label, int start, int end, Gdk.RGBA color) {
-		var attrs = label.get_attributes();
+	public void apply_syntax_color(SupraLabel label, int start, int end, Gdk.RGBA color) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_foreground_new(
 			(uint16)(color.red * 65535),
 			(uint16)(color.green * 65535),
@@ -65,18 +57,11 @@ namespace LabelExt {
 		);
 		attr.start_index = start;
 		attr.end_index = end;
-		
-		// Assurez-vous d'utiliser set_attributes si vous modifiez la liste existante
-		// ou si vous créez une nouvelle Pango.AttrList
-		if (attrs == null) {
-			attrs = new Pango.AttrList();
-		}
 		attrs.insert ((owned)attr);
-		label.set_attributes(attrs);
 	}
 
-	public void add_highlight(Gtk.Label label, int start_index, int end_index, Gdk.RGBA color) {
-		var attrs = get_attributes_list (label);
+	public void add_highlight(SupraLabel label, int start_index, int end_index, Gdk.RGBA color) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_background_new(
 			(uint16)(color.red * 65535),
 			(uint16)(color.green * 65535),
@@ -88,8 +73,8 @@ namespace LabelExt {
 	}
 
 	// set monospace
-	public void set_monospace(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void set_monospace(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var font_desc = new Pango.FontDescription();
 		font_desc.set_family("monospace");
 		var attr = new Pango.AttrFontDesc(font_desc); 
@@ -98,24 +83,24 @@ namespace LabelExt {
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_superscript(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_superscript(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_baseline_shift_new( Pango.BaselineShift.SUPERSCRIPT);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void add_subscript(Gtk.Label label, int start_index, int end_index) {
-		var attrs = get_attributes_list (label);
+	public void add_subscript(SupraLabel label, int start_index, int end_index) {
+		var attrs = label.get_attributes_list();
 		var attr = Pango.attr_baseline_shift_new( Pango.BaselineShift.SUBSCRIPT);
 		attr.start_index = start_index;
 		attr.end_index = end_index;
 		attrs.insert ((owned)attr);
 	}
 
-	public void set_size(Gtk.Label label, int start_index, int end_index, int size) {
-		var attrs = get_attributes_list (label);
+	public void set_size(SupraLabel label, int start_index, int end_index, int size) {
+		var attrs = label.get_attributes_list();
 		var font_desc = new Pango.FontDescription();
 		font_desc.set_size(size * Pango.SCALE);
 		var attr = new Pango.AttrFontDesc(font_desc); 

@@ -12,7 +12,6 @@ public class MarkdownElementCodeBlock : MarkdownElement {
 print('Hello World')
 """;
 		
-		print ("\n\n\n\n\033[32;1m%s\033[0m et %s\n\n\n\n\n", lang, code);
 		box_code = append_textcode (lang, code);
 	}
 
@@ -23,7 +22,7 @@ print('Hello World')
 	private Gtk.Box append_textcode (string lang, string code) throws Error {
 		// BOX code
 		var box_code = new Gtk.Box (Orientation.HORIZONTAL, 0) {
-			css_classes = {"code_box"},
+			css_classes = {"markdown-code_box"},
 			halign = Align.START,
 			valign = Align.FILL,
 			hexpand = false,
@@ -68,7 +67,7 @@ print('Hello World')
 		text.set_size_request (max_size_line * 10, -1);
 
 		box_code.append(new Gtk.Label (line_bar.str) {
-			css_classes = {"line_bar"},
+			css_classes = {"markdown-line_bar"},
 			halign = Align.START,
 			valign = Align.START,
 			vexpand = true,

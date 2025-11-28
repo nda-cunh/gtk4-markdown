@@ -84,6 +84,7 @@ public class MDText : MDNode {
 	public override unowned string get_type_name() {
 		return "Text";
 	}
+
 	public string text;
 	public MDText(owned string text) {
 		this.text = text;
@@ -146,5 +147,18 @@ public class MDListNode : MDNode {
 	public ListType list_type;
 	public MDListNode(ListType type) {
 		this.list_type = type;
+	}
+}
+
+public class MDLink : MDNode {
+	public override unowned string get_type_name() { return "Link"; }
+	public string url;
+	public string name;
+	public string title;
+
+	public MDLink(owned string name, owned string url, owned string title) {
+		this.url = url;
+		this.title = title;
+		this.name = name;
 	}
 }

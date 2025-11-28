@@ -4,11 +4,13 @@ public class Markdown : Gtk.Box {
 	private string file_path;
 	private string dir_name;
 	private string filename;
-	private Regex regex_image;
-	private Regex regex_link;
-	private Regex regex_table;
-	private Regex regex_code;
-	private Regex regex_blockquote;
+	private static Regex regex_image;
+	private static Regex regex_table;
+	private static Regex regex_code;
+	private static Regex regex_blockquote;
+
+	public signal bool activate_link (string uri);
+	public HashTable<string, Gtk.Widget> anchor;
 
 	construct {
 		orientation = Gtk.Orientation.VERTICAL;
@@ -16,12 +18,8 @@ public class Markdown : Gtk.Box {
 		vexpand = true;
 		try {
 			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.OPTIMIZE);
-			regex_link = new Regex("""^\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
 			regex_table = new Regex("""(?:\|[^\n]*\n)+""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-
-			// TODO a reparer
 			regex_code = new Regex("""[`]{3}(?P<lang>[^\s\n]*)?\n(?P<code>.*?)[`]{3}""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-
 			regex_blockquote = new Regex("""([>]\s+.+?\n)+""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
 		}
 		catch (Error e) {
@@ -45,22 +43,24 @@ public class Markdown : Gtk.Box {
 		Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 
-		var lst = cut_content(contents);
+		var lst = cut_content(contents, this.dir_name);
 
 		foreach (unowned var i in lst) {
 			var? w = i.getwidget ();
 			if (w != null) {
+				if (w is SupraLabel) {
+					w.link_clicked.connect ((uri) => {
+						activate_link (uri);
+					});
+				}
 				append(w);
-				// // just append a new line
-				// append(new Gtk.Label("\n") { halign = Align.START, });
 			}
 		}
-
 	}
 
 
 
-	public SList<MarkdownElement> cut_content (string contents) {
+	public static SList<MarkdownElement> cut_content (string contents, string base_path) {
 		var result = new SList<MarkdownElement>();
 		unowned string str = (string)contents;
 		int len = str.length;
@@ -79,8 +79,6 @@ public class Markdown : Gtk.Box {
 					dash_count++;
 					i++;
 				}
-
-				// Vérifiez si c'est une ligne horizontale (au moins 3 tirets)
 				if (dash_count >= 3 && (i == len || str[i] == '\n')) {
 					if (segment_start < i - dash_count) {
 						result.append(new MarkdownElementText(str[segment_start: i - dash_count]));
@@ -90,7 +88,6 @@ public class Markdown : Gtk.Box {
 					segment_start = i;
 					continue;
 				} else {
-					// Si ce n'est pas une ligne horizontale, revenez en arrière
 					i -= dash_count;
 				}
 			}
@@ -105,7 +102,6 @@ public class Markdown : Gtk.Box {
 
 					if (i > segment_start)
 						result.append(new MarkdownElementText(str[segment_start: i]));
-
 					result.append(new MarkdownElementBlockquote(str[i: i + end_pos]));
 					i += end_pos;
 					segment_start = i;
@@ -136,7 +132,6 @@ public class Markdown : Gtk.Box {
 				if (regex_table.match(str.offset(i), RegexMatchFlags.ANCHORED, out info)) {
 					int start_pos, end_pos;
 					info.fetch_pos(0, out start_pos, out end_pos);
-					print ("\n\n\n\n\n\nTable found at positions %d to %d\n", start_pos, end_pos);
 
 					if (i > segment_start)
 						result.append(new MarkdownElementText(str[segment_start: i]));
@@ -158,7 +153,7 @@ public class Markdown : Gtk.Box {
 					if (i > segment_start)
 						result.append(new MarkdownElementText(str[segment_start: i]));
 
-					result.append(new MarkdownElementImage(str[i: i + end_pos], info, this.dir_name));
+					result.append(new MarkdownElementImage(str[i: i + end_pos], info, base_path));
 					i += end_pos;
 					segment_start = i;
 					continue;
@@ -174,216 +169,4 @@ public class Markdown : Gtk.Box {
 
 		return result;
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	void append_table (uint8[] str, ref int i) {
-		unowned string begin_text_ptr = (string)&str[i];
-		int nl = begin_text_ptr.index_of_char ('\n');
-		if (nl == -1) {
-			nl = begin_text_ptr.length;
-		}
-		StringBuilder sb = new StringBuilder();
-		while (true) {
-			begin_text_ptr = (string)&str[i];
-			nl = begin_text_ptr.index_of_char ('\n');
-			if (nl == -1) {
-				nl = begin_text_ptr.length;
-			}
-			sb.append(begin_text_ptr[0 : nl] + "\n");
-			i += nl + 1;
-			begin_text_ptr = (string)&str[i];
-			if (!begin_text_ptr.has_prefix ("|"))
-				break;
-		}
-		var table = new Table.from_content(sb.str, (text, is_table) => {
-			int _index = 0;
-			return parse_text((uint8[])text.data);
-		});
-		append(table);
-		i -= 1; // Adjust i since the main loop will increment it
-	}
-
-	private void append_textcode (string lang, string code) throws Error {
-		// BOX code
-		var box_code = new Gtk.Box (Orientation.HORIZONTAL, 0) {
-			css_classes = {"code_box"},
-			halign = Align.START,
-			valign = Align.FILL,
-			hexpand = false,
-			vexpand = false,
-		};
-		var buffer = new TextBuffer(null) {
-			text = code,
-		};
-		var text = new Gtk.TextView.with_buffer (buffer) {
-			halign = Align.START,
-			valign = Align.START,
-			hexpand=true,
-			vexpand=true,
-			can_focus = false,
-			focusable = false,
-		};
-
-		// Count line
-		var line_bar = new StringBuilder();
-		int i = 1;
-		int index = 0;
-		while (true) {
-			index = code.index_of_char ('\n', index + 1);
-			if (index == -1)
-				break;
-			line_bar.append_printf ("%d\n", i);
-			++i;
-		}
-
-		int max_size_line = 0;
-		unowned string ptr = code;
-		// count the max size of line
-		while (true) {
-			int max = ptr.index_of_char ('\n');
-			if (max == -1)
-				break;
-			if (max > max_size_line)
-				max_size_line = max;
-			ptr = ptr.offset(max + 1);
-		}
-
-		text.set_size_request (max_size_line * 10, -1);
-
-		box_code.append(new Gtk.Label (line_bar.str) {
-			css_classes = {"line_bar"},
-			halign = Align.START,
-			valign = Align.START,
-			vexpand = true,
-			hexpand = true,
-			justify = Justification.LEFT,
-		});
-		box_code.append(text);
-		append (box_code);
-	}
-
-
-
-
-	// void parser (string content) {
-		// int i = 0;
-		// uint8[] str = content.data;
-		// int len_max = str.length;
-// 
-		// bool is_begin = true;
-		// while (i < len_max) {
-			// MatchInfo info;
-// 
-			// print (@"\033[35m$is_begin >>> [%s]\033[0m\n", ((string)&str[i])[0:10]);
-				// 
-			// // if (regex_image.match((string)&str[i], RegexMatchFlags.ANCHORED, out info)) {
-				// // // Image ![alt](url "title")
-				// // int start_pos, end_pos;
-				// // info.fetch_pos (1, out start_pos, out end_pos);
-				// // var url = info.fetch_named("url");
-				// // var title = info.fetch_named("title");
-				// // var name = info.fetch_named("name");
-				// // print ("Image found: %s\n", ((string)&str[i])[start_pos:end_pos]);
-				// // append_img(name, url, title);
-				// // i += end_pos;
-				// // is_begin = true;
-				// // // continue;
-			// // }
-// 
-			// if (str[i] == '-' && str[i+1] == '-' && str[i+2] == '-') {
-				// print ("Horizontal Rule found\n");
-				// append( new Gtk.Separator(Gtk.Orientation.HORIZONTAL));
-				// unowned string begin_text_ptr = (string)&str[i];
-				// int nl = begin_text_ptr.index_of_char ('\n');
-				// i += nl == -1 ? begin_text_ptr.length : nl;
-				// continue;
-			// }
-// 
-// 
-			// // Code block  ```lang text```
-			// // NOTE rework it
-			// if (is_begin && str[i] == '`' && str[i + 1] == '`' && str[i + 2] == '`') {
-				// // Code block
-				// i += 3; // Move past the opening ```
-				// unowned string begin_text_ptr = (string)&str[i];
-				// int nl = begin_text_ptr.index_of_char ('\n');
-				// if (nl == -1) {
-					// nl = begin_text_ptr.length;
-				// }
-				// // Extract language (if any)
-				// string lang = begin_text_ptr[0 : nl]._strip();
-				// i += nl + 1; // Move to the next line after language
-// 
-				// // Now extract code until closing ```
-				// begin_text_ptr = (string)&str[i];
-				// int end_code_index = begin_text_ptr.index_of("```");
-				// if (end_code_index == -1) {
-					// end_code_index = begin_text_ptr.length;
-				// }
-				// string code = begin_text_ptr[0 : end_code_index];
-				// append_textcode(lang, code);
-				// i += end_code_index + 3; // Move past the closing ```
-				// continue; // Skip the i++ at the end
-			// }
-// 
-			// // Table  | Foo | Bar |
-			// // NOTE add a is_table function
-			// if (is_begin && str[i] == '|') {
-				// append_table(str, ref i);
-				// continue;
-			// }
-// 
-			// // Unordered list - '- '
-			// if (is_begin && str[i] == '-' && str[i+1] == ' ') {
-				// // Unordered list
-				// // print ("Unordered List\n");
-				// var ul_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
-					// halign = Gtk.Align.START,
-				// };
-				// while (i < len_max && str[i] == '-' && str[i+1] == ' ') {
-					// i += 2; // Move past '- '
-					// var item_label = parse_text(str, ref i);
-					// var item_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 5) {
-						// halign = Gtk.Align.START,
-					// };
-					// var bullet_label = new Gtk.Label("• ") {
-						// halign = Gtk.Align.START,
-						// valign = Gtk.Align.END
-					// };
-					// LabelExt.set_size (bullet_label, 0, 3, 20);
-					// item_box.append(bullet_label);
-					// item_box.append(item_label);
-					// ul_box.append(item_box);
-					// // Move to the next line
-					// if (i < len_max && str[i] == '\n') {
-						// i++;
-					// }
-				// }
-				// append(ul_box);
-				// continue;
-			// }
-// 
-			// append(parse_text(str, ref i));
-			// 
-			// i++;
-		// }
-	// }
-// 
 }

@@ -2,7 +2,7 @@ using Gtk;
 
 public class Table : Gtk.Grid {
 	construct {
-		css_classes = {"table"};
+		css_classes = {"markdown-table"};
 		halign = Gtk.Align.START;
 		valign = Gtk.Align.FILL;
 		func = (text) => new Gtk.Label(text);
@@ -60,11 +60,10 @@ public class Table : Gtk.Grid {
 					try {
 
 					var label = func(elem, true);
-						label.css_classes = {"header_table"};
+						label.css_classes = {"markdown-header_table"};
 						label.halign = Gtk.Align.FILL;
 						label.vexpand = true;
 						label.hexpand = true;
-						// label.use_markup = true;
 						attach(label, j, i);
 					}
 					catch (Error e) {
@@ -75,12 +74,11 @@ public class Table : Gtk.Grid {
 					try {
 
 					var label = func(elem, true);
-						label.css_classes = {"table_label"};
+						label.css_classes = {"markdown-table_label"};
 						label.selectable = true;
 						label.vexpand = true;
 						label.hexpand = true;
 						label.halign = Gtk.Align.FILL;
-						// label.use_markup = true;
 						attach(label, j, i);
 					}
 					catch (Error e) {

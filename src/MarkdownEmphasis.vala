@@ -5,6 +5,7 @@ public class MarkdownEmphasis {
 		UNDERLINE,
 		STRIKE,
 		BLOCK_CODE,
+		LINK,
 		HIGHLIGHT,
 		SUBSCRIPT,
 		SUPERSCRIPT,
@@ -13,12 +14,21 @@ public class MarkdownEmphasis {
 
 	public Type type;
 	public int start_index {get; private set;}
-	public int size {get; private set;}
+	public int end_index {get; private set;}
 
 	public MarkdownEmphasis (Type type, int start_index, int size) {
 		this.type = type;
 		this.start_index = start_index;
-		this.size = size;
+		this.end_index = size;
+	}
+}
+
+public class MarkdownEmphasisLink : MarkdownEmphasis {
+	public string url {get; private set;}
+
+	public MarkdownEmphasisLink (int start_index, int size, string url) {
+		base (Type.LINK, start_index, size);
+		this.url = url;
 	}
 }
 

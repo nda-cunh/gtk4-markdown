@@ -1,5 +1,16 @@
 public class MarkdownParser {
 
+	Regex regex_url;
+	Regex regex_link;
+	public MarkdownParser() {
+		try {
+			regex_url = new Regex("""(?P<url>https?://[^\s<]+)""", RegexCompileFlags.OPTIMIZE);
+			regex_link = new Regex("""\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
+		}
+		catch (Error e) {
+			printerr ("Error compiling regex: %s\n", e.message);
+		}
+	}
 	/**
 	 * Parses the input markdown string and returns the root MDDocument node.
 	 * @param input The markdown input string.
@@ -95,6 +106,14 @@ public class MarkdownParser {
 	}
 
 
+	/**
+	 * Processes HTML-like inline tags such as <i>, <b>, <u>, <s>, <strong>, <em>, <h1>-<h6>.
+	 * @param line The line to parse.
+	 * @param parent The parent MDNode to append parsed elements to.
+	 * @param tag The HTML-like tag to process (e.g., "i", "b", "u", etc.).
+	 * @param i The current index in the line (passed by reference).
+	 * @return True if the tag was processed, false otherwise.
+	 */
 	private bool process_html_inline_tag (string line, MDNode parent, string tag, ref int i) {
 		string open_tag = "<" + tag + ">";
 		string close_tag = "</" + tag + ">";
@@ -135,15 +154,74 @@ public class MarkdownParser {
 			}
 
 			if (line[i] == '\\' && i + 1 < len) {
-				const char []lst_allowed = {'\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '#', '+', '-', '.', '!', '|'};
+				const char []lst_allowed = {'\\', '`', '*', '_', '{', '}', '[', ']', '<', '>', '#', '+', '-', '.', '!', '|', 'h'};
 				if (line[i + 1] in lst_allowed) {
 					parent.children.append(new MDText(line[i + 1].to_string()));
 					i += 2;
 					continue;
 				}
 			}
-			// HTML-like inline tags
 
+			if (starts_with(line, i, "`")) {
+				int find_close = find_closing(line, i + 1, "`");
+				if (find_close >= 0) {
+					string code_text = line.offset(i)[1 : find_close - (i)];
+					var code_node = new MDInlineCode ();
+					code_node.children.append(new MDText(code_text));
+					parent.children.append(code_node);
+					i = find_close + 1;
+					continue;
+				} else {
+					// No closing backtick found, treat as text
+					parent.children.append(new MDText("`"));
+					i += 1;
+					continue;
+				}		
+			}
+
+			// NOTE urls
+			if (starts_with (line, i, "http://") || starts_with (line, i, "https://")) {
+				MatchInfo info;
+				if (regex_url.match(line.offset(i), RegexMatchFlags.ANCHORED, out info)) {
+					string link_url = info.fetch_named("url");
+					int start_pos, end_pos;
+					info.fetch_pos (0, out start_pos, out end_pos);
+					var link_node = new MDLink(link_url, link_url, "");
+					link_node.children.append(new MDText(link_url));
+					parent.children.append(link_node);
+					i += end_pos;
+					continue;
+				}
+				else {
+					// No valid URL found, treat as text
+					parent.children.append(new MDText(line[i].to_string()));
+					i += 1;
+					continue;
+				}
+			}
+			if (starts_with(line, i, "[")) {
+				MatchInfo info;
+				if (regex_link.match(line.offset(i), RegexMatchFlags.ANCHORED, out info)) {
+					string link_name = info.fetch_named ("name");
+					string link_url = info.fetch_named("url");
+					string link_title = info.fetch_named("title");
+					int start_pos, end_pos;
+					info.fetch_pos (0, out start_pos, out end_pos);
+					var link_node = new MDLink(link_name, link_url, link_title);
+					parse_inline(link_name, link_node);
+					parent.children.append(link_node);
+					i += end_pos;
+					continue;
+				} else {
+					// No valid link found, treat as text
+					parent.children.append(new MDText("["));
+					i += 1;
+					continue;
+				}
+
+			}
+
+			// HTML-like inline tags
 			if (line[i] == '<') {
 				if (process_html_inline_tag(line, parent, "i", ref i))
 					continue;
@@ -185,8 +263,6 @@ public class MarkdownParser {
 			if (process_inline_token("*", line, parent, ref i))
 				continue;
 			if (process_inline_token("_", line, parent, ref i))
-				continue;
-			if (process_inline_token("`", line, parent, ref i))
 				continue;
 			if (process_inline_token("~", line, parent, ref i))
 				continue;
@@ -245,7 +321,8 @@ public class MarkdownParser {
 	 */
     private int next_markup_pos (string line, int start) {
         int best = -1;
-        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>", "\\", "<i>", "</i>", "<b>", "</b>", "<u>", "</u>", "<s>", "</s>", "<strong>", "</strong>", "<em>", "</em>", "<h1>", "</h1>", "<h2>", "</h2>", "<h3>", "</h3>", "<h4>", "</h4>", "<h5>", "</h5>", "<h6>", "</h6>"};
+        const string[] tokens = {"**", "~~", "*", "`", "_", "___", "***", "==", "~", "^", "<br>", "\\", "<i>", "</i>", "<b>", "</b>", "<u>", "</u>", "<s>", "</s>", "<strong>", "</strong>", "<em>", "</em>", "<h1>", "</h1>", "<h2>", "</h2>", "<h3>", "</h3>", "<h4>", "</h4>", "<h5>", "</h5>", "<h6>", "</h6>", "[", "http://", "https://"};
+		// print ("Searching for next markup in line: '%s' starting at %d\n", line, start);
         foreach (unowned var tok in tokens) {
             int p = line.index_of(tok, start);
             if (p == -1) continue;

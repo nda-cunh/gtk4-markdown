@@ -9,6 +9,8 @@ srcs_lib_markdown += files(
   'MarkdownToLabel.vala',
   'SpecialWidgets/Gif.vala',
   'SpecialWidgets/Table.vala',
+  'SpecialWidgets/SupraLabel.vala',
+  'SpecialWidgets/Vector2i.vala',
   'MarkdownElement/MarkdownElement.vala',
   'MarkdownElement/MarkdownElementBlockquote.vala',
   'MarkdownElement/MarkdownElementCodeBlock.vala',
