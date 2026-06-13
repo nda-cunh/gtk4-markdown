@@ -19,7 +19,7 @@ public class CodeBlock : Gtk.Box {
 		var line_bar = new StringBuilder ();
 		string[] lines = code.split ("\n");
 		int line_num = 1;
-		foreach (var line in lines) {
+		for (int i = 0; i < lines.length; i++) {
 			line_bar.append_printf ("%d\n", line_num);
 			++line_num;
 		}
@@ -50,7 +50,8 @@ public class CodeBlock : Gtk.Box {
 		int text_height = 0;
 		layout.get_pixel_size (out text_width, out text_height);
 		
-		text_view.set_size_request (text_width + 20, text_height + 20);
+		text_width = int.max (text_width + 20, 500);
+		text_view.set_size_request (text_width, text_height + 10);
 		
 		append (text_view);
 	}
