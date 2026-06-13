@@ -257,7 +257,7 @@ public class MarkDown : Gtk.Box {
 		append_text (node_text (node, src));
 	}
 
-	// Byte-level scan for standalone image syntax ![alt](url).
+	// Byte-level scan for standalone image syntax ![alt](url){width=N height=N}.
 	// All delimiters are ASCII so byte offsets equal character offsets for them.
 	private bool parse_image_from_text (string raw) throws Error {
 		int len = raw.length;
@@ -285,12 +285,6 @@ public class MarkDown : Gtk.Box {
 		}
 		if (paren_end < 0) return false;
 
-		// verify nothing non-whitespace follows the closing )
-		for (int j = paren_end + 1; j < len; j++) {
-			if (raw[j] != ' ' && raw[j] != '\n' && raw[j] != '\r' && raw[j] != '\t')
-				return false;
-		}
-
 		uint8[] alt_buf = new uint8[bracket_end - alt_start + 1];
 		Memory.copy (alt_buf, ((uint8*) raw) + alt_start, bracket_end - alt_start);
 		string alt = (string) alt_buf;
@@ -316,8 +310,39 @@ public class MarkDown : Gtk.Box {
 			}
 		}
 
-		append_img (alt, url, title);
+		// Parse optional {width=N height=N} after the closing ).
+		int img_width = -1;
+		int img_height = -1;
+		int k = paren_end + 1;
+		while (k < len && (raw[k] == ' ' || raw[k] == '\t')) k++;
+		if (k < len && raw[k] == '{') {
+			int attr_end = raw.index_of ("}", k + 1);
+			if (attr_end > k) {
+				string attrs = raw.substring (k + 1, attr_end - k - 1);
+				img_width  = parse_img_attr_int (attrs, "width");
+				img_height = parse_img_attr_int (attrs, "height");
+				k = attr_end + 1;
+			}
+		}
+		// Reject if anything other than whitespace remains.
+		for (; k < len; k++) {
+			if (raw[k] != ' ' && raw[k] != '\n' && raw[k] != '\r' && raw[k] != '\t')
+				return false;
+		}
+
+		append_img (alt, url, title, img_width, img_height);
 		return true;
+	}
+
+	private int parse_img_attr_int (string attrs, string key) {
+		string pattern = key + "=";
+		int pos = attrs.index_of (pattern);
+		if (pos < 0) return -1;
+		int val_start = pos + pattern.length;
+		int val_end = val_start;
+		while (val_end < attrs.length && attrs[val_end].isdigit ()) val_end++;
+		if (val_end == val_start) return -1;
+		return int.parse (attrs.substring (val_start, val_end - val_start));
 	}
 
 	private void render_fenced_code (TreeSitter.Node node, string src) throws Error {
@@ -477,7 +502,7 @@ public class MarkDown : Gtk.Box {
 		box.append (table);
 	}
 
-	private void append_img (string name, string url, string title) throws Error {
+	private void append_img (string name, string url, string title, int req_width = -1, int req_height = -1) throws Error {
 		string _url = GLib.Path.is_absolute (url) ? url : file_dir + "/" + url;
 		try {
 			if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
@@ -489,9 +514,14 @@ public class MarkDown : Gtk.Box {
 					can_focus = false,
 					focusable = false,
 				};
+				int w = req_width  > 0 ? req_width  : img.width;
+				int h = req_height > 0 ? req_height : img.height;
+				img.set_size_request (w, h);
 				box.append (img);
 			} else {
 				var texture = Gdk.Texture.from_filename (_url);
+				int w = req_width  > 0 ? req_width  : texture.get_width ();
+				int h = req_height > 0 ? req_height : texture.get_height ();
 				Picture img = new Gtk.Picture.for_paintable (texture) {
 					valign = Align.START,
 					halign = Align.START,
@@ -502,7 +532,7 @@ public class MarkDown : Gtk.Box {
 					alternative_text = title,
 					can_shrink = false,
 				};
-				img.set_size_request (texture.get_width (), texture.get_height ());
+				img.set_size_request (w, h);
 				box.append (img);
 			}
 		} catch (Error e) {
