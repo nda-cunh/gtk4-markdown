@@ -50,7 +50,7 @@ public class CodeBlock : Gtk.Box {
 		int text_height = 0;
 		layout.get_pixel_size (out text_width, out text_height);
 		
-		text_view.set_size_request (final_width, text_height);
+		text_view.set_size_request (text_width + 20, text_height + 20);
 		
 		append (text_view);
 	}
