@@ -53,7 +53,7 @@ public class SupraLabel : Gtk.Box {
 		if (context.lookup_color ("accent_color", out link_color) == false)
 			link_color = Gdk.RGBA () { red = 0.2f, green = 0.5f, blue = 1.0f, alpha = 1.0f };
 		LabelExt.apply_syntax_color (this, start_pos, end_pos, link_color);
-		LabelExt.add_underline (this, start_pos, end_pos);
+		// LabelExt.add_underline (this, start_pos, end_pos);
 	}
 
 	public void add_color_hover (int start_pos, int end_pos) {
@@ -96,7 +96,7 @@ public class SupraLabel : Gtk.Box {
 		foreach (unowned var link in links) {
 			bool over = cursor_pos >= link.begin && cursor_pos <= link.end;
 			if (over && !link.is_hovered) {
-				add_color_hover (link.begin, link.end);
+				// add_color_hover (link.begin, link.end);
 				link.is_hovered = true;
 				needs_redraw = true;
 			} else if (!over && link.is_hovered) {
