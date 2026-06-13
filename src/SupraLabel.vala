@@ -15,6 +15,7 @@ public class SupraLabel : Gtk.Box {
 	private Gtk.GestureClick gesture_click = new Gtk.GestureClick ();
 	private Gtk.EventControllerMotion gesture_motion = new Gtk.EventControllerMotion ();
 	private Gtk.Label? label { private set; get; }
+	private Pango.AttrList? base_attrs = null;
 
 	public SupraLabel (string text) {
 		links = new List<Link> ();
@@ -26,8 +27,9 @@ public class SupraLabel : Gtk.Box {
 			hexpand = true,
 		};
 
-		gesture_click.pressed.connect (onClick);
-		gesture_motion.motion.connect (onMotion);
+		gesture_click.pressed.connect (on_click);
+		gesture_motion.motion.connect (on_motion);
+		gesture_motion.leave.connect (on_leave);
 
 		((Gtk.Widget) label).add_controller (gesture_click);
 		((Gtk.Widget) label).add_controller (gesture_motion);
@@ -43,76 +45,89 @@ public class SupraLabel : Gtk.Box {
 	}
 
 	public void add_link (int start_pos, int end_pos, string url) {
-		add_color_link (start_pos, end_pos);
+		apply_link_color (start_pos, end_pos);
 		links.append (new Link (start_pos, end_pos, url));
 	}
 
-	private void add_color_link (int start_pos, int end_pos) {
-		Gdk.RGBA link_color;
-		Gtk.StyleContext context = label.get_style_context ();
-		if (context.lookup_color ("accent_color", out link_color) == false)
-			link_color = Gdk.RGBA () { red = 0.2f, green = 0.5f, blue = 1.0f, alpha = 1.0f };
-		LabelExt.apply_syntax_color (this, start_pos, end_pos, link_color);
-		// LabelExt.add_underline (this, start_pos, end_pos);
+	private void apply_link_color (int start_pos, int end_pos) {
+		Gdk.RGBA color;
+		if (!label.get_style_context ().lookup_color ("accent_color", out color))
+			color = Gdk.RGBA () { red = 0.2f, green = 0.5f, blue = 1.0f, alpha = 1.0f };
+		LabelExt.apply_syntax_color (this, start_pos, end_pos, color);
 	}
 
-	public void add_color_hover (int start_pos, int end_pos) {
-		Gdk.RGBA hover_color;
-		Gtk.StyleContext context = label.get_style_context ();
-		if (context.lookup_color ("accent_color_hover", out hover_color) == false)
-			hover_color = Gdk.RGBA () { red = 0.5f, green = 0.3f, blue = 1.0f, alpha = 1.0f };
-		LabelExt.apply_syntax_color (this, start_pos, end_pos, hover_color);
+	private void ensure_base_attrs () {
+		if (base_attrs != null) return;
+		var cur = label.get_attributes ();
+		base_attrs = cur != null ? cur.copy () : new Pango.AttrList ();
 	}
 
-	private void onClick (int npress, double x, double y) {
+	private void apply_hover_state () {
+		ensure_base_attrs ();
+		var attrs = base_attrs.copy ();
+
+		bool any_hovered = false;
+		foreach (unowned var link in links) {
+			if (!link.is_hovered) continue;
+			any_hovered = true;
+
+			var c = Gdk.RGBA () { red = 0.18f, green = 0.36f, blue = 0.92f, alpha = 1.0f };
+			var attr = Pango.attr_foreground_new (
+				(uint16) (c.red   * 65535),
+				(uint16) (c.green * 65535),
+				(uint16) (c.blue  * 65535));
+			attr.start_index = (uint) link.begin;
+			attr.end_index   = (uint) link.end;
+			attrs.change ((owned) attr);
+		}
+
+		label.set_attributes (attrs);
+		label.set_cursor (any_hovered ? new Gdk.Cursor.from_name ("pointer", null) : null);
+		label.queue_draw ();
+	}
+
+	private int xy_to_index (double x, double y) {
 		unowned Pango.Layout layout = label.get_layout ();
-		int x_offset, y_offset;
-		label.get_layout_offsets (out x_offset, out y_offset);
-		int pango_x = (int) ((x - x_offset) * Pango.SCALE);
-		int pango_y = (int) ((y - y_offset) * Pango.SCALE);
+		int x_off, y_off;
+		label.get_layout_offsets (out x_off, out y_off);
+		int pango_x = (int) ((x - x_off) * Pango.SCALE);
+		int pango_y = (int) ((y - y_off) * Pango.SCALE);
 		int index, trailing;
 		layout.xy_to_index (pango_x, pango_y, out index, out trailing);
-		int cursor_pos = index + trailing;
+		return index + trailing;
+	}
 
+	private void on_click (int npress, double x, double y) {
+		int pos = xy_to_index (x, y);
 		foreach (unowned var link in links) {
-			if (cursor_pos >= link.begin && cursor_pos <= link.end) {
+			if (pos >= link.begin && pos <= link.end) {
 				link_clicked.emit (link.url);
 				break;
 			}
 		}
 	}
 
-	private void onMotion (double x, double y) {
-		unowned Pango.Layout layout = label.get_layout ();
-		int x_offset, y_offset;
-		label.get_layout_offsets (out x_offset, out y_offset);
-		int pango_x = (int) ((x - x_offset) * Pango.SCALE);
-		int pango_y = (int) ((y - y_offset) * Pango.SCALE);
-		int index, trailing;
-		layout.xy_to_index (pango_x, pango_y, out index, out trailing);
-		int cursor_pos = index + trailing;
-
-		bool needs_redraw = false;
+	private void on_motion (double x, double y) {
+		int pos = xy_to_index (x, y);
+		bool changed = false;
 		foreach (unowned var link in links) {
-			bool over = cursor_pos >= link.begin && cursor_pos <= link.end;
-			if (over && !link.is_hovered) {
-				// add_color_hover (link.begin, link.end);
-				link.is_hovered = true;
-				needs_redraw = true;
-			} else if (!over && link.is_hovered) {
-				var attrs = get_attributes_list ();
-				attrs.filter ((attr) => {
-					return attr.klass.type == Pango.AttrType.FOREGROUND &&
-					       attr.start_index == link.begin &&
-					       attr.end_index == link.end;
-				});
-				add_color_link (link.begin, link.end);
-				link.is_hovered = false;
-				needs_redraw = true;
+			bool over = pos >= link.begin && pos <= link.end;
+			if (over != link.is_hovered) {
+				link.is_hovered = over;
+				changed = true;
 			}
 		}
-		if (needs_redraw)
-			label.queue_draw ();
+		if (changed)
+			apply_hover_state ();
+	}
+
+	private void on_leave () {
+		bool changed = false;
+		foreach (unowned var link in links) {
+			if (link.is_hovered) { link.is_hovered = false; changed = true; }
+		}
+		if (changed)
+			apply_hover_state ();
 	}
 
 	public signal void link_clicked (string url);
