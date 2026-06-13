@@ -149,6 +149,7 @@ public class MarkDown : Gtk.Box {
 		case "block_quote":
 			render_block_quote (node, src);
 			break;
+		case "list":
 		case "tight_list":
 		case "loose_list":
 			walk_children (node, src);
@@ -447,7 +448,7 @@ public class MarkDown : Gtk.Box {
 					}
 				}
 				if (!rendered_image)
-					append_text (marker + " " + node_text (child, src)._strip ());
+					append_list_item (marker, node_text (child, src)._strip ());
 			} else {
 				walk_node (child, src);
 			}
@@ -460,18 +461,41 @@ public class MarkDown : Gtk.Box {
 
 	// ── Widget factories ─────────────────────────────────────────────────────
 
-	private void append_checkbox (char c, string name) {
-		var check = new Gtk.CheckButton.with_label (name) {
+	private void append_checkbox (char c, string text) {
+		var row = new Gtk.Box (Orientation.HORIZONTAL, 8) {
 			halign = Align.START,
-			valign = Align.FILL,
+			valign = Align.CENTER,
 			hexpand = false,
-			vexpand = false,
-			can_focus = false,
 			margin_top = 2,
 		};
-		if (c == 'x' || c == 'X')
-			check.active = true;
-		box.append (check);
+		var check = new Gtk.CheckButton () {
+			halign = Align.START,
+			valign = Align.CENTER,
+			can_focus = false,
+			active = (c == 'x' || c == 'X'),
+		};
+		var label = create_supra_label (text);
+		row.append (check);
+		row.append (label);
+		box.append (row);
+	}
+
+	private void append_list_item (string marker, string text) {
+		var row = new Gtk.Box (Orientation.HORIZONTAL, 6) {
+			halign = Align.START,
+			valign = Align.START,
+			hexpand = true,
+			margin_top = 1,
+		};
+		var bullet = new Gtk.Label (marker) {
+			halign = Align.START,
+			valign = Align.START,
+			hexpand = false,
+		};
+		var label = create_supra_label (text);
+		row.append (bullet);
+		row.append (label);
+		box.append (row);
 	}
 
 	private void append_separator () {
