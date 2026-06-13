@@ -15,7 +15,6 @@ public class ExampleApp : Gtk.Application {
 				margin_top = 15,
 			};
 
-			markdown.path_dir = "/nfs/homes/nda-cunh/.local/share/supravim-gui/";
 			if (cmds.length == 1) {
 				markdown.load_file ("Readme.md");
 			}

@@ -1,49 +1,33 @@
 using Gtk;
 
+[CCode (cname = "tree_sitter_markdown")]
+extern TreeSitter.Language ts_md_lang ();
 
 public class MarkDown : Gtk.Box {
-	/** Private members */
 	private unowned Gtk.Box box;
-	private Regex		regex_image;
-	private Regex		regex_table;
-	private Regex		regex_code;
-	private Regex		regex_task;
-	private Regex		regex_blockquotes;
-	private Regex		regex_link;
-	private Regex		regex_blockquotes_replace;
-	private Box			general_box;
+	private Box general_box;
+	private TreeSitter.Parser ts_parser;
+	private string file_dir = Environment.get_current_dir ();
 
-	public string path_dir {get; set;}
-
-	/** Constructor */
 	construct {
 		anchor = new HashTable<string, Gtk.Widget> (str_hash, str_equal);
-		path_dir = Environment.get_current_dir ();
-		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
+		general_box = new Gtk.Box (Orientation.VERTICAL, 12) {
+			hexpand = true,         // ◄ AJOUTE CETTE LIGNE
+			halign = Align.FILL     // ◄ AJOUTE CETTE LIGNE
+		};
+
 		box = general_box;
 		var provider = new Gtk.CssProvider ();
 		provider.load_from_resource ("/style.css");
-		StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, STYLE_PROVIDER_PRIORITY_APPLICATION);
-		base.append(general_box);
-		try {
-			regex_image = new Regex("""[!]\[(?P<name>.*)\]\((?P<url>[^\s]*)?(?P<title>.*?)?\)""", RegexCompileFlags.OPTIMIZE);
-			regex_table = new Regex("""^\|.*\|.*\|\n(\|.*\|.*\|\n)*""", RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-			regex_code = new Regex("""^```(?P<lang>\S*)?\n(?P<code>.*?)```""", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-			regex_link = new Regex("""^\[(?P<name>[^\]]+)\]\s*\((?P<url>[^ ""\)]+)(?P<title>[^\)]+)?\)""", RegexCompileFlags.OPTIMIZE);
-			regex_task = new Regex("""^-\s\[(X|x| )\]\s*(?<name>.*)""", RegexCompileFlags.OPTIMIZE);
-			regex_blockquotes = new Regex("(^>.*?\n)+(\n|$)", RegexCompileFlags.DOTALL | RegexCompileFlags.MULTILINE | RegexCompileFlags.OPTIMIZE);
-			regex_blockquotes_replace = new Regex("^>[ ]?", MULTILINE | OPTIMIZE);
-		}
-		catch (Error e) {
-			error ("Error: %s\n", e.message);
-		}
+		StyleContext.add_provider_for_display (Gdk.Display.get_default (), provider, STYLE_PROVIDER_PRIORITY_APPLICATION);
+		base.append (general_box);
+		ts_parser = new TreeSitter.Parser ();
+		ts_parser.set_language (ts_md_lang ());
 		hexpand = true;
 		vexpand = true;
 	}
 
-	/* Markdown Constructor */
 	public MarkDown () {
-
 	}
 
 	public MarkDown.from_file (string file) throws Error {
@@ -55,10 +39,7 @@ public class MarkDown : Gtk.Box {
 	}
 
 	public void load_string (string text) throws Error {
-		// Timer timer = new Timer ();
-		// timer.reset ();
-		parse (text.replace("\r", ""));
-		// print ("Time string: %f\n", timer.elapsed());
+		parse (text.replace ("\r", ""));
 	}
 
 	Label END;
@@ -73,19 +54,21 @@ public class MarkDown : Gtk.Box {
 			else
 				file = file[0:file.index_of_char ('#')];
 		}
-		// Timer timer = new Timer ();
-		// timer.reset ();
+		// resolve to absolute so relative-path callers work correctly
+		if (!GLib.Path.is_absolute (file))
+			file = Environment.get_current_dir () + "/" + file;
+		file_dir = Path.get_dirname (file);
 		string markdown_text;
 		FileUtils.get_contents (file, out markdown_text);
 		markdown_text = markdown_text.replace ("\r", "");
 		parse (markdown_text);
 
-		END = new Gtk.Label("") {
+		END = new Gtk.Label ("") {
 			can_focus = true,
 			focusable = true,
 			selectable = true,
 		};
-		box.append(END);
+		box.append (END);
 
 		if (tag != null) {
 			Idle.add (() => {
@@ -94,8 +77,8 @@ public class MarkDown : Gtk.Box {
 				Gtk.Settings.get_default ().gtk_enable_animations = false;
 				Gtk.Settings.get_default ().gtk_overlay_scrolling = false;
 				END.focus (DirectionType.DOWN);
-				Timeout.add (100, ()=> {
-					debug("b: Jump to tag: %s\n", tag);
+				Timeout.add (100, () => {
+					debug ("b: Jump to tag: %s\n", tag);
 					if (anchor.contains (tag)) {
 						anchor[tag].focus (DirectionType.UP);
 						anchor[tag].grab_focus ();
@@ -107,10 +90,6 @@ public class MarkDown : Gtk.Box {
 				return false;
 			});
 		}
-		else {
-		}
-
-		// print ("Time file: %f\n", timer.elapsed());
 	}
 
 	public HashTable<string, Gtk.Widget> anchor;
@@ -118,142 +97,346 @@ public class MarkDown : Gtk.Box {
 	public void clear () {
 		base.remove (general_box);
 		general_box = null;
-		general_box = new Gtk.Box (Orientation.VERTICAL, 0);
+		general_box = new Gtk.Box (Orientation.VERTICAL, 12) {
+			hexpand = true,         // ◄ AJOUTE CETTE LIGNE
+			halign = Align.FILL     // ◄ AJOUTE CETTE LIGNE
+		};
 		box = general_box;
-		base.append(general_box);
+		base.append (general_box);
 	}
 
+	// ── Tree-sitter block parsing ────────────────────────────────────────────
 
-	private int z_index = 0;
-	/*
-	* principal parsing function
-	* it parse the markdown text and append the result to the actual box
-	*/
-	private void parse (owned string text_md) throws Error  {
-		z_index++;
-		MatchInfo match_info;
-		int start_pos, end_pos;
-		int start = 0;
-		int len_markdown = text_md.length;
+	private void parse (string text_md) throws Error {
+		var tree = ts_parser.parse_string (null, text_md, (uint32) text_md.length);
+		if (tree == null) return;
+		walk_node (tree.get_root_node (), text_md);
+	}
 
-		for (int i = 0; text_md[i] != '\0'; ++i) {
-			bool is_nl;
-			if (i == 0)
-				is_nl = true;
-			else
-				is_nl = (text_md[i - 1] == '\n');
-			if (is_nl == false)
-				continue;
-			
-			// is an header
-			if (text_md[i] == '#') {
-				int n = 0;
-				while (text_md[i + n] == '#')
-					++n;
+	private string node_text (TreeSitter.Node node, string src) {
+		// tree-sitter gives byte offsets; Vala's string[a:b] uses g_utf8_substring
+		// (character offsets), which diverges when src contains non-ASCII characters
+		uint32 len = node.end_byte - node.start_byte;
+		uint8[] buf = new uint8[len + 1];
+		Memory.copy (buf, ((uint8*) src) + node.start_byte, (size_t) len);
+		return ((string) buf).dup();
+	}
 
-				if (text_md[i + n] == ' ') {
-					if (start < i)
-						append_text (text_md[start:i]);
-					int len = text_md.offset(i).index_of_char ('\n');
-					unowned  string header = text_md.offset(i);
-					var label = create_label_markdown (header[0:len], false);
-					label.can_focus = true;
-					label.focusable = true;
-					box.append (label);
-					var header_tag = header[n+1:len]._strip();
-					anchor [header_tag] = label;
-					i += len;
-					start = i + 1;
-					continue;
-				}
-			}
-			// Task checkbox parsing
-			if (text_md[i] == '-') {
-				if (regex_task.match(text_md.offset(i), 0, out match_info))
-				{
-					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start < i)
-						append_text (text_md[start:i]);
-					var name = match_info.fetch_named("name");
-					append_checkbox (text_md[i + 3], name);
-					i += end_pos;
-					start = i + 1;
-					continue;
-				}
-			}
-			// Horizontal line
-			if (text_md[i] == '*' || text_md[i] == '-' || text_md[i] == '_') {
-				char c = text_md[i];
-				int n = 0;
-				while (text_md[n + i] == c)
-					++n;
-				if (n >= 3 && text_md[i + n] == '\n') {
-					append_text (text_md[start:i]);
-					append_separator();
-					i += n;
-					start = i;
-				}
-			}
-			// image parsing
-			else if (text_md[i] == '!') {
-				if (regex_image.match(text_md.offset(i), 0, out match_info)) {
-					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start < i)
-						append_text (text_md[start:i]);
+	private void walk_node (TreeSitter.Node node, string src) throws Error {
+		unowned string? type = TreeSitter.node_get_type (node);
+		if (type == null) return;
 
-					var name = match_info.fetch_named("name");
-					var url = match_info.fetch_named("url");
-					var title = match_info.fetch_named("title")?.strip() ?? "\"none\"";
-					if (title == "")
-						title = "\"none\"";
-					append_img (name, url, title);
-					i += end_pos;
-					start = i;
-				}
-			}
-			// table parsing
-			else if (text_md[i] == '|') {
-				if (regex_table.match(text_md.offset(i - 1), 0, out match_info)) {
-					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start < i)
-						append_text (text_md[start:i]);
-					string table = text_md.offset(i)[0:end_pos - 1];
-					append_table (table);
-					i += end_pos - 1;
-					start = i;
-				}
-			}
+		switch (type) {
+		case "document":
+		case "section":
+			walk_children (node, src);
+			break;
+		case "atx_heading":
+			render_atx_heading (node, src);
+			break;
+		case "setext_heading":
+			render_setext_heading (node, src);
+			break;
+		case "paragraph":
+			render_paragraph (node, src);
+			break;
+		case "fenced_code_block":
+			render_fenced_code (node, src);
+			break;
+		case "indented_code_block":
+			render_indented_code (node, src);
+			break;
+		case "block_quote":
+			render_block_quote (node, src);
+			break;
+		case "tight_list":
+		case "loose_list":
+			walk_children (node, src);
+			break;
+		case "list_item":
+			render_list_item (node, src);
+			break;
+		case "thematic_break":
+			append_separator ();
+			break;
+		case "pipe_table":
+			render_pipe_table (node, src);
+			break;
+		case "block_continuation":
+			walk_children (node, src);
+			break;
+		default:
+			break;
+		}
+	}
 
-			else if (text_md[i] == '>') {
-				if (regex_blockquotes.match(text_md.offset(i), 0, out match_info)) {
-					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start < i)
-						append_text (text_md[start:i]);
-					var blockquotes = match_info.fetch (0);
-					append_blockquotes(blockquotes);
-					i += end_pos - 2;
-					start = i;
-				}
-			}
+	private void walk_children (TreeSitter.Node node, string src) throws Error {
+		uint32 n = TreeSitter.node_get_child_count (node);
+		for (uint32 i = 0; i < n; i++)
+			walk_node (TreeSitter.node_get_child (node, i), src);
+	}
 
-			else if (text_md[i] == '`' && text_md[i + 1] == '`' && text_md[i + 2] == '`') {
-				if (regex_code.match(text_md.offset(i), 0, out match_info)) {
-					match_info.fetch_pos (0, out start_pos, out end_pos);
-					if (start < i)
-						append_text (text_md[start:i]);
-					var lang = match_info.fetch_named("lang") ?? "none";
-					var code = match_info.fetch_named("code");
-					append_textcode(lang, code);
-					i += end_pos;
-					start = i;
+	private void render_atx_heading (TreeSitter.Node node, string src) throws Error {
+		int level = 1;
+		string content = "";
+		uint32 n = TreeSitter.node_get_child_count (node);
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == null) continue;
+			switch (ct) {
+			case "atx_h1_marker": level = 1; break;
+			case "atx_h2_marker": level = 2; break;
+			case "atx_h3_marker": level = 3; break;
+			case "atx_h4_marker": level = 4; break;
+			case "atx_h5_marker": level = 5; break;
+			case "atx_h6_marker": level = 6; break;
+			case "inline":
+				content = node_text (child, src);
+				break;
+			}
+		}
+		int[] top_margins = { 24, 20, 16, 12, 10, 10 };
+		var label = create_supra_label (content, level);
+		label.can_focus = true;
+		label.focusable = true;
+		label.margin_top = top_margins[level - 1];
+		label.margin_bottom = 4;
+		box.append (label);
+		anchor[content._strip ()] = label;
+	}
+
+	private void render_setext_heading (TreeSitter.Node node, string src) throws Error {
+		int level = 1;
+		string content = "";
+		uint32 n = TreeSitter.node_get_child_count (node);
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == null) continue;
+			switch (ct) {
+			case "setext_h1_underline": level = 1; break;
+			case "setext_h2_underline": level = 2; break;
+			case "paragraph":
+				uint32 pn = TreeSitter.node_get_child_count (child);
+				for (uint32 j = 0; j < pn; j++) {
+					var pc = TreeSitter.node_get_child (child, j);
+					if (TreeSitter.node_get_type (pc) == "inline") {
+						content = node_text (pc, src)._strip ();
+						break;
+					}
 				}
+				if (content == "")
+					content = node_text (child, src)._strip ();
+				break;
+			case "inline":
+				content = node_text (child, src)._strip ();
+				break;
+			}
+		}
+		int[] top_margins = { 24, 20, 16, 12, 10, 10 };
+		var label = create_supra_label (content, level);
+		label.can_focus = true;
+		label.focusable = true;
+		label.margin_top = top_margins[level - 1];
+		label.margin_bottom = 4;
+		box.append (label);
+		anchor[content._strip ()] = label;
+	}
+
+	private void render_paragraph (TreeSitter.Node node, string src) throws Error {
+		// tree-sitter-markdown only parses block structure; inline nodes have no
+		// named children — scan the raw inline text for image syntax instead
+		uint32 n = TreeSitter.node_get_child_count (node);
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			if (TreeSitter.node_get_type (child) == "inline") {
+				if (parse_image_from_text (node_text (child, src)))
+					return;
+				break;
+			}
+		}
+		append_text (node_text (node, src));
+	}
+
+	// Byte-level scan for standalone image syntax ![alt](url).
+	// All delimiters are ASCII so byte offsets equal character offsets for them.
+	private bool parse_image_from_text (string raw) throws Error {
+		int len = raw.length; // strlen — byte count
+		int i = 0;
+		while (i < len && (raw[i] == ' ' || raw[i] == '\n' || raw[i] == '\r' || raw[i] == '\t'))
+			i++;
+		if (i + 3 >= len || raw[i] != '!' || raw[i + 1] != '[') return false;
+
+		int alt_start = i + 2;
+		int bracket_end = -1;
+		int depth = 0;
+		for (int j = alt_start; j < len; j++) {
+			if (raw[j] == '[') depth++;
+			else if (raw[j] == ']') {
+				if (depth > 0) { depth--; continue; }
+				if (j + 1 < len && raw[j + 1] == '(') { bracket_end = j; break; }
+			}
+		}
+		if (bracket_end < 0) return false;
+
+		int url_start = bracket_end + 2;
+		int paren_end = -1;
+		for (int j = url_start; j < len; j++) {
+			if (raw[j] == ')') { paren_end = j; break; }
+		}
+		if (paren_end < 0) return false;
+
+		// verify nothing non-whitespace follows the closing )
+		for (int j = paren_end + 1; j < len; j++) {
+			if (raw[j] != ' ' && raw[j] != '\n' && raw[j] != '\r' && raw[j] != '\t')
+				return false;
+		}
+
+		uint8[] alt_buf = new uint8[bracket_end - alt_start + 1];
+		Memory.copy (alt_buf, ((uint8*) raw) + alt_start, bracket_end - alt_start);
+		string alt = (string) alt_buf;
+
+		int url_end = url_start;
+		while (url_end < paren_end && raw[url_end] != ' ' && raw[url_end] != '\t')
+			url_end++;
+		if (url_start == url_end) return false;
+		uint8[] url_buf = new uint8[url_end - url_start + 1];
+		Memory.copy (url_buf, ((uint8*) raw) + url_start, url_end - url_start);
+		string url = (string) url_buf;
+
+		string title = "";
+		if (url_end < paren_end) {
+			int t = url_end;
+			while (t < paren_end && (raw[t] == ' ' || raw[t] == '\t')) t++;
+			int t_end = paren_end;
+			while (t_end > t && (raw[t_end - 1] == ' ' || raw[t_end - 1] == '\t')) t_end--;
+			if (t_end > t) {
+				uint8[] title_buf = new uint8[t_end - t + 1];
+				Memory.copy (title_buf, ((uint8*) raw) + t, t_end - t);
+				title = (string) title_buf;
 			}
 		}
 
-		if (start < len_markdown)
-			append_text (text_md.offset(start));	
-		z_index--;
+		append_img (alt, url, title);
+		return true;
 	}
+
+	private void render_fenced_code (TreeSitter.Node node, string src) throws Error {
+		string lang = "none";
+		string code = "";
+		uint32 n = TreeSitter.node_get_child_count (node);
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == null) continue;
+			switch (ct) {
+			case "info_string":
+				lang = node_text (child, src).strip ();
+				if (lang == "") lang = "none";
+				break;
+			case "code_fence_content":
+				code = node_text (child, src);
+				break;
+			}
+		}
+		append_textcode (lang, code);
+	}
+
+	private void render_indented_code (TreeSitter.Node node, string src) throws Error {
+		var raw = node_text (node, src);
+		var sb = new StringBuilder ();
+		foreach (var line in raw.split ("\n")) {
+			if (line.has_prefix ("    "))
+				sb.append (line[4:]);
+			else
+				sb.append (line);
+			sb.append_c ('\n');
+		}
+		append_textcode ("none", sb.str);
+	}
+
+	private void render_block_quote (TreeSitter.Node node, string src) throws Error {
+		var bq = new BlockQuote () {
+			margin_top = 4,
+			margin_bottom = 4,
+		};
+		var old_box = box;
+		box.append (bq);
+		box = bq.content;
+		try {
+			uint32 n = TreeSitter.node_get_child_count (node);
+			for (uint32 i = 0; i < n; i++) {
+				var child = TreeSitter.node_get_child (node, i);
+				if (TreeSitter.node_get_type (child) != "block_quote_marker")
+					walk_node (child, src);
+			}
+		} finally {
+			box = old_box;
+		}
+		bq.set_size_request (500, 500);
+	}
+
+	private void render_list_item (TreeSitter.Node node, string src) throws Error {
+		bool is_task = false;
+		bool is_checked = false;
+		string marker = "•";
+		uint32 n = TreeSitter.node_get_child_count (node);
+
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == null) continue;
+			if (ct == "task_list_marker_checked") { is_task = true; is_checked = true; }
+			else if (ct == "task_list_marker_unchecked") { is_task = true; }
+			else if (ct.has_prefix ("list_marker")) {
+				var m = node_text (child, src).strip ();
+				// Ordered list markers keep their text (e.g. "1.")
+				if (m != "-" && m != "+" && m != "*")
+					marker = m;
+			}
+		}
+
+		if (is_task) {
+			string para_text = "";
+			for (uint32 i = 0; i < n; i++) {
+				var child = TreeSitter.node_get_child (node, i);
+				if (TreeSitter.node_get_type (child) == "paragraph")
+					para_text = node_text (child, src)._strip ();
+			}
+			append_checkbox (is_checked ? 'x' : ' ', para_text);
+			return;
+		}
+
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == null) continue;
+			if (ct.has_prefix ("list_marker") || ct.has_prefix ("task_list_marker"))
+				continue;
+			if (ct == "paragraph") {
+				bool rendered_image = false;
+				uint32 pn = TreeSitter.node_get_child_count (child);
+				for (uint32 pi = 0; pi < pn; pi++) {
+					var pc = TreeSitter.node_get_child (child, pi);
+					if (TreeSitter.node_get_type (pc) == "inline") {
+						rendered_image = parse_image_from_text (node_text (pc, src));
+						break;
+					}
+				}
+				if (!rendered_image)
+					append_text (marker + " " + node_text (child, src)._strip ());
+			} else {
+				walk_node (child, src);
+			}
+		}
+	}
+
+	private void render_pipe_table (TreeSitter.Node node, string src) throws Error {
+		append_table (node_text (node, src) + "\n");
+	}
+
+	// ── Widget factories ─────────────────────────────────────────────────────
 
 	private void append_checkbox (char c, string name) {
 		var check = new Gtk.CheckButton.with_label (name) {
@@ -262,6 +445,7 @@ public class MarkDown : Gtk.Box {
 			hexpand = false,
 			vexpand = false,
 			can_focus = false,
+			margin_top = 2,
 		};
 		if (c == 'x' || c == 'X')
 			check.active = true;
@@ -274,459 +458,284 @@ public class MarkDown : Gtk.Box {
 			valign = Align.FILL,
 			hexpand = true,
 			vexpand = false,
+			margin_top = 8,
+			margin_bottom = 8,
 		};
 		box.append (separator);
 	}
 
-	private void append_blockquotes (string content) throws Error {
-		var block_quotes = new Gtk.Box (Orientation.VERTICAL, 0) {
-			css_classes = {"blockquotes"},
-			halign = Align.START,
-			valign = Align.FILL,
-			hexpand = false,
-			vexpand = false,
-		};
-		if (z_index > 1) {
-			block_quotes.hexpand = true;
-			block_quotes.halign = Align.FILL;
-		}
-		box.append(block_quotes);
-		box = block_quotes;
-		var parse_me = regex_blockquotes_replace.replace (content, -1, 0, "");
-		parse (parse_me);
-		box = general_box;
+	private Gtk.Widget make_table_label (string text, bool is_table) throws Error {
+		return create_supra_label (text);
 	}
 
 	private void append_table (string content) throws Error {
-		var table = new Table.from_content (content, create_label_markdown) {
+		var table = new Table.from_content (content, make_table_label) {
 			halign = Align.START,
 			valign = Align.FILL,
-			hexpand= true,
-			vexpand=true,
+			hexpand = true,
+			vexpand = true,
+			margin_top = 4,
+			margin_bottom = 4,
 		};
 		box.append (table);
 	}
 
 	private void append_img (string name, string url, string title) throws Error {
-		string _url = path_dir + "/" + url; 
+		string _url = GLib.Path.is_absolute (url) ? url : file_dir + "/" + url;
 		try {
 			if (_url.has_suffix (".gif") || _url.has_suffix (".webp")) {
 				var img = new Gif (_url) {
 					valign = Align.START,
 					halign = Align.START,
-					hexpand=false,
-					vexpand=false,
+					hexpand = false,
+					vexpand = false,
 					can_focus = false,
 					focusable = false,
 				};
 				box.append (img);
-				return ;
-			}
-			else {
-				if (FileUtils.test (_url, FileTest.EXISTS) == false) {
-					throw new FileError.EXIST("Image [%s] not found", _url);
-				}
-				Picture img = new Gtk.Picture.for_filename (_url) {
+			} else {
+				var texture = Gdk.Texture.from_filename (_url);
+				Picture img = new Gtk.Picture.for_paintable (texture) {
 					valign = Align.START,
 					halign = Align.START,
-					hexpand=false,
-					vexpand=false,
+					hexpand = false,
+					vexpand = false,
 					can_focus = false,
 					focusable = false,
-					alternative_text = title
+					alternative_text = title,
+					can_shrink = false,
 				};
-				img.set_size_request (-1, img.paintable.get_intrinsic_height ());
+				img.set_size_request (texture.get_width (), texture.get_height ());
 				box.append (img);
-				return ;
 			}
-		}
-		catch (Error e) {
-			try {
-				append_text (@"Error: $(e.message)");
-			}
-			catch (Error e) {
-				throw e;
-			}
+		} catch (Error e) {
+			printerr ("Error loading image: %s\n", e.message);
+			var vbox = new Gtk.Box (Orientation.VERTICAL, 2);
+			var icon = new Gtk.Image.from_icon_name ("image-missing-symbolic") {
+				valign = Align.START,
+				halign = Align.START,
+			};
+			string safe_url = url.validate () ? url : "(invalid path)";
+			var err_label = new Gtk.Label ("Image not found: " + safe_url) {
+				valign = Align.START,
+				halign = Align.START,
+				css_classes = { "markdown-image-error" },
+			};
+			vbox.append (icon);
+			vbox.append (err_label);
+			box.append (vbox);
 		}
 	}
 
-		
 	public signal bool activate_link (string uri);
 
-	public Gtk.Label create_label_markdown (string text, bool is_table) throws Error {
-		text = label_parsing (text, is_table);
-		var label = new Gtk.Label (text) {
-			halign = Align.START,
-			use_markup = true,
-			selectable = true,
-			hexpand = false,
-			vexpand = false,
-			wrap = true,
-			can_focus = true,
-			focusable = false,
-		};
-		label.activate_link.connect ((uri) => {
-			if (this.activate_link(uri) == false) {
-				try {
-					string markdown_path = uri;
-					string? tags = null;
-					if (markdown_path.index_of_char ('#') != -1) {
-						markdown_path = markdown_path[0:markdown_path.index_of_char ('#')];
-						tags = uri[uri.index_of_char ('#') + 1:];
-					}
-					if (FileUtils.test (path_dir + "/" + markdown_path + ".md", FileTest.EXISTS)) {
-						this.clear();
-						this.load_file (path_dir + "/" + markdown_path + ".md", tags);
-					}
-					else
-						Process.spawn_command_line_async("xdg-open " + uri);
-				}
-				catch (Error e) {
-					print ("Error: %s\n", e.message);
-				}
-			}
-			return true;
-		});
-		return label;
-	}
-
 	private void append_text (string text) throws Error {
-		var label = create_label_markdown (text, false);
+		var label = create_supra_label (text);
 		box.append (label);
 	}
 
 	private void append_textcode (string lang, string code) throws Error {
-		// BOX code
-		var box_code = new Gtk.Box (Orientation.HORIZONTAL, 0) {
-			css_classes = {"code_box"},
-			halign = Align.START,
-			valign = Align.FILL,
-			hexpand = false,
-			vexpand = false,
-		};
-		var buffer = new TextBuffer(null) {
-			text = code,
-		};
-		var text = new Gtk.TextView.with_buffer (buffer) {
-			halign = Align.START,
-			valign = Align.START,
-			hexpand=true,
-			vexpand=true,
-			can_focus = false,
-			focusable = false,
-		};
-
-		// Count line
-		var line_bar = new StringBuilder();
-		int i = 1;
-		int index = 0;
-		while (true) {
-			index = code.index_of_char ('\n', index + 1);
-			if (index == -1)
-				break;
-			line_bar.append_printf ("%d\n", i);
-			++i;
-		}
-
-		int max_size_line = 0;
-		unowned string ptr = code;
-		// count the max size of line
-		while (true) {
-			int max = ptr.index_of_char ('\n');
-			if (max == -1)
-				break;
-			if (max > max_size_line)
-				max_size_line = max;
-			ptr = ptr.offset(max + 1);
-		}
-
-		text.set_size_request (max_size_line * 10, -1);
-
-		box_code.append(new Gtk.Label (line_bar.str) {
-			css_classes = {"line_bar"},
-			halign = Align.START,
-			valign = Align.START,
-			vexpand = true,
-			hexpand = true,
-			justify = Justification.LEFT,
-		});
-		box_code.append(text);
-		box.append (box_code);
+		box.append (new CodeBlock (lang, code));
 	}
 
+	// ── SupraLabel inline renderer ───────────────────────────────────────────
 
-	/** Simple parsing for Label */
-	private string label_parsing (string text_param, bool is_table = false) throws Error {
-		var text = text_param;
-		StringBuilder result = new StringBuilder();
-		MatchInfo info;
-		bool is_newline = true;
-		bool is_header = false;
-		bool is_bold = false;
-		bool is_italic = false;
-		bool is_bolditalic = false;
-		bool is_code1 = false;
-		bool is_code2 = false;
-		bool is_highlight = false;
-		bool is_strike = false;
-		bool is_underline = false;
-		bool is_sub = false;
-		bool is_sup = false;
-		bool is_quote = false;
-		bool is_escaped = false;
-		var regex_automatic_link = new Regex("""^http[s]?://[^\s"']*""", RegexCompileFlags.OPTIMIZE);
-
-		text = text.replace ("&", "&amp;");
-		text = text.replace ("\\<", "&lt;");
-		text = text.replace ("<", "&lt;");
-		text = text.replace ("\\>", "&gt;");
-		text = text.replace (">", "&gt;");
-
-
-		for (int i = 0; text[i] != '\0'; ++i) {
-			// check newline
-			if (i == 0 || text[i - 1] == '\n') {
-				is_newline = true;
-				if (is_header) {
-					result.append("</span>");
-					is_header = false;
-				}
-				is_quote = false;
-			}
-			else
-				is_newline = false;	
-
-			if (i != 0 && text[i - 1] == '\\')
-				is_escaped = true;
-			else
-				is_escaped = false;
-
-
-			// escape me !
-			if (text[i] == '<') {
-				result.append("&lt;");
-				continue;
-			}
-			else if (text[i] == '>') {
-				result.append("&gt;");
-				continue;
-			}
-			if (text[i] == '\\') {
-				if (text[i + 1] == '<') {
-					result.append("&lt;");
-					++i;
-				}
-				else if (text[i + 1] == '>') {
-					result.append("&gt;");
-					++i;
-				}
-				continue ;
-			}
-
-
-
-			if (is_newline == true) {
-				
-				if (is_table == false && text[i] == '-' && text[i + 1] == ' ') {
-					result.append("• ");
-					i += 2;
-				}
-
-				// HEADER 
-				if (text[i] == '#') {
-					int n = 0;
-					while (text[i + n] == '#')
-						++n;
-					if (text[i + n] == ' ') {
-						is_header = true;
-						switch (n) {
-							case 1:
-								result.append("<span size=\"300%\">");
-								break;
-							case 2:
-								result.append("<span size=\"200%\">");
-								break;
-							case 3:
-								result.append("<span size=\"150%\">");
-								break;
-							case 4:
-								result.append("<span size=\"125%\">");
-								break;
-							case 5:
-								result.append("<span size=\"110%\">");
-								break;
-							case 6:
-								result.append("<span size=\"85%\">");
-								break;
-						}
-						i += n + 1;
-					}
-				}
-			}
-
-			if (regex_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
-				int start_pos, end_pos;
-				info.fetch_pos (0, out start_pos, out end_pos);
-				
-				var name = info.fetch_named("name");
-				var url = info.fetch_named("url");
-				var? title = info.fetch_named("title")?.strip();
-				if (title == null || title == "")
-					result.append_printf ("<a href=\"%s\">%s</a>", url, name);
-				else
-					result.append_printf ("<a href=\"%s\" title=%s>%s</a>", url, title, name);
-				i += end_pos - 1;
-				continue;
-			}
-				// CODE
-			else if (text[i] == '`' && is_escaped == false) {
-				int n = 0;
-				while (text[i + n] == '`')
-					++n;
-				switch (n) {
-					case 1:
-						if (is_code1)
-							result.append("</span>");
-						else
-							result.append("<span bgcolor=\"#292443\">");
-						is_code1 = !is_code1;
-						continue;
-					case 2:
-						if (is_code2)
-							result.append("</span>");
-						else
-							result.append("<span bgcolor=\"#292959\">");
-						is_code2 = !is_code2;
-						i += 1;
-						continue;
-				}
-			}
-
-			if (is_code1 == false && is_code2 == false && is_escaped == false) {
-				// AUTOMATIC LINK
-				if (regex_automatic_link.match(text.offset(i), RegexMatchFlags.NOTEOL, out info)) {
-					int quote_found = 0;
-					int n = 0;
-					while (text[i + n] != '\0' && text[i + n] != '\n')
-					{
-						if (text[i + n] == '\'')
-							++quote_found;
-						++n;
-					}
-					if (quote_found % 2 == 0 && is_quote == false || is_quote == true && quote_found == 0) 
-					{
-						int start_pos, end_pos;
-						info.fetch_pos (0, out start_pos, out end_pos);
-						var url = info.fetch (0);
-						result.append_printf ("<a href=\"%s\">%s</a>", url, url);
-						i += end_pos - 1;
-						continue;
-					}
-				}
-
-				// BOLD/ITALIC/BOLD_ITALIC
-				if (text[i] == '*') {
-					int n = 0;
-					while (text[i + n] == '*')
-						++n;
-					if (n <= 3) {
-						switch (n) {
-							case 1:
-								if (is_italic)
-									result.append("</i>");
-								else
-									result.append("<i>");
-								is_italic = !is_italic;
-								i += n - 1;
-								continue;
-							case 2:
-								if (is_bold)
-									result.append("</b>");
-								else
-									result.append("<b>");
-								is_bold = !is_bold;
-								i += n - 1;
-								continue;
-							case 3:
-								if (is_bolditalic)
-									result.append("</i></b>");
-								else
-									result.append("<b><i>");
-								is_bolditalic = !is_bolditalic;
-								i += n - 1;
-								continue;
-						}
-					}
-				}
-
-				else if (text[i] == '=' && text[i + 1] == '=' && is_escaped == false) {
-					if (is_highlight)
-						result.append("</span>");
-					else
-						result.append("<span bgcolor=\"#594939\">");
-					is_highlight = !is_highlight;
-					i += 1;
-					continue;
-				}
-
-				else if (text[i] == '~' && is_escaped == false) {
-					int n = 0;
-					while (text[i + n] == '~')
-						++n;
-					switch (n) {
-						case 1:
-							if (is_sub)
-								result.append("</sub>");
-							else
-								result.append("<sub>");
-							is_sub = !is_sub;
-							continue;
-						case 2:
-							if (is_strike)
-								result.append("</s>");
-							else
-								result.append("<s>");
-							is_strike = !is_strike;
-							++i;
-							continue;
-					}
-				}
-
-				else if (text[i] == '^' && text[i + 1] != '^' && is_escaped == false) {
-					if (is_sup)
-						result.append("</sup>");
-					else
-						result.append("<sup>");
-					is_sup = !is_sup;
-					continue;
-				}
-
-				else if (text[i] == '_' && text[i + 1] == '_' && is_escaped == false) {
-					if (is_underline)
-						result.append("</u>");
-					else
-						result.append("<u>");
-					is_underline = !is_underline;
-					++i;
-					continue;
-				}
-
-			}
-
-
-			if (text[i] == '\'' && is_escaped == false) {
-				is_quote = !is_quote;
-			}
-
-
-			result.append_c (text[i]);
+	private int get_inline_size_for_level (int level) {
+		switch (level) {
+		case 1: return 28;
+		case 2: return 24;
+		case 3: return 20;
+		case 4: return 16;
+		case 5: return 14;
+		default: return 14;
 		}
-		if (is_header) {
-			result.append("</span>");
-			is_header = false;
+	}
+
+	private void render_inline_node (MDNode node, StringBuilder sb, ref List<MarkdownEmphasis> list) {
+		int begin, end;
+		if (node is MDText) {
+			sb.append (((MDText) node).text);
+		} else if (node is MDParagraph) {
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			if (((MDParagraph) node).is_end == false)
+				sb.append ("\n");
+		} else if (node is MDBold) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BOLD, begin, end));
+		} else if (node is MDItalic) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.ITALIC, begin, end));
+		} else if (node is MDStrike) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.STRIKE, begin, end));
+		} else if (node is MDUnderline) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.UNDERLINE, begin, end));
+		} else if (node is MDInlineCode) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BLOCK_CODE, begin, end));
+		} else if (node is MDSuperscript) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.SUPERSCRIPT, begin, end));
+		} else if (node is MDSubscript) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.SUBSCRIPT, begin, end));
+		} else if (node is MDItalicBold) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BOLD, begin, end));
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.ITALIC, begin, end));
+		} else if (node is MDLink) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasisLink (begin, end, ((MDLink) node).url));
+		} else if (node is MDHeader) {
+			sb.append ("\n");
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasisHeader (begin, end, ((MDHeader) node).level));
+			sb.append ("\n");
+		} else if (node is MDLineBreak) {
+			sb.append ("\n");
+		} else if (node is MDhighlight) {
+			begin = (int) sb.len;
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+			end = (int) sb.len;
+			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.HIGHLIGHT, begin, end));
+		} else if (node is MDListNode) {
+			if (((MDListNode) node).list_type == MDListNode.ListType.ORDERED)
+				sb.append ("1. ");
+			else
+				sb.append ("• ");
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+		} else if (node is MDDocument) {
+			foreach (unowned var child in node.children)
+				render_inline_node (child, sb, ref list);
+		}
+	}
+
+	private SupraLabel create_supra_label (string text, int heading_level = 0) {
+		var parser = new MarkdownParser ();
+		var doc = parser.parse (text);
+		var emph_list = new List<MarkdownEmphasis> ();
+		var sb = new StringBuilder ();
+		render_inline_node (doc, sb, ref emph_list);
+
+		var label = new SupraLabel (sb.str);
+
+		if (heading_level > 0)
+			LabelExt.set_size (label, 0, int.MAX, get_inline_size_for_level (heading_level));
+
+		foreach (unowned var attr in emph_list) {
+			switch (attr.type) {
+			case MarkdownEmphasis.Type.HEADER:
+				var h = (MarkdownEmphasisHeader) attr;
+				LabelExt.set_size (label, attr.start_index, attr.end_index, get_inline_size_for_level (h.header_level));
+				break;
+			case MarkdownEmphasis.Type.BOLD:
+				LabelExt.add_bold (label, attr.start_index, attr.end_index);
+				break;
+			case MarkdownEmphasis.Type.ITALIC:
+				LabelExt.add_italic (label, attr.start_index, attr.end_index);
+				break;
+			case MarkdownEmphasis.Type.STRIKE:
+				LabelExt.add_strike (label, attr.start_index, attr.end_index);
+				break;
+			case MarkdownEmphasis.Type.UNDERLINE:
+				LabelExt.add_underline (label, attr.start_index, attr.end_index);
+				break;
+			case MarkdownEmphasis.Type.HIGHLIGHT:
+				Gdk.RGBA hl_color = { 0.7f, 0.7f, 0.1f, 0.3f };
+				LabelExt.add_highlight (label, attr.start_index, attr.end_index, hl_color);
+				break;
+			case MarkdownEmphasis.Type.SUPERSCRIPT:
+				LabelExt.add_superscript (label, attr.start_index, attr.end_index);
+				LabelExt.set_size (label, attr.start_index, attr.end_index, 7);
+				break;
+			case MarkdownEmphasis.Type.SUBSCRIPT:
+				LabelExt.add_subscript (label, attr.start_index, attr.end_index);
+				LabelExt.set_size (label, attr.start_index, attr.end_index, 7);
+				break;
+			case MarkdownEmphasis.Type.BLOCK_CODE:
+				Gdk.RGBA code_bg;
+				Gdk.RGBA code_fg;
+				Gtk.StyleContext ctx = label.get_style_context ();
+				if (!ctx.lookup_color ("theme_text_color", out code_fg))
+					code_fg = Gdk.RGBA () { red = 0.9f, green = 0.9f, blue = 0.9f, alpha = 0.8f };
+				if (!ctx.lookup_color ("theme_bg_color", out code_bg))
+					code_bg = Gdk.RGBA () { red = 0.16f, green = 0.14f, blue = 0.26f, alpha = 0.9f };
+				else {
+					code_bg.red += 0.09f;
+					code_bg.green += 0.09f;
+					code_bg.blue += 0.09f;
+					code_bg.alpha = 0.4f;
+					code_fg.alpha = 0.9f;
+				}
+				LabelExt.apply_syntax_color (label, attr.start_index, attr.end_index, code_fg);
+				LabelExt.add_highlight (label, attr.start_index, attr.end_index, code_bg);
+				LabelExt.set_monospace (label, attr.start_index, attr.end_index);
+				LabelExt.add_line_height (label, attr.start_index, attr.end_index, 1.1f);
+				break;
+			case MarkdownEmphasis.Type.LINK:
+				var link_attr = (MarkdownEmphasisLink) attr;
+				label.add_link (attr.start_index, attr.end_index, link_attr.url);
+				break;
+			default:
+				break;
+			}
 		}
 
+		label.link_clicked.connect ((url) => {
+			if (this.activate_link (url) == false) {
+				try {
+					string md_path = url;
+					string? tag = null;
+					if (md_path.index_of_char ('#') != -1) {
+						md_path = md_path[0:md_path.index_of_char ('#')];
+						tag = url[url.index_of_char ('#') + 1:];
+					}
+					if (FileUtils.test (file_dir + "/" + md_path + ".md", FileTest.EXISTS)) {
+						this.clear ();
+						this.load_file (file_dir + "/" + md_path + ".md", tag);
+					} else {
+						Process.spawn_command_line_async ("xdg-open " + url);
+					}
+				} catch (Error e) {
+					print ("Error: %s\n", e.message);
+				}
+			}
+		});
 
-		return (owned)result.str;
+		return label;
 	}
 }

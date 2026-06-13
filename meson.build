@@ -1,5 +1,8 @@
 project('markdown', ['c', 'vala'], default_options : ['warning_level=3', 'optimization=2'])
 
+vapi_dir = meson.current_source_dir() / 'vapi'
+add_project_arguments(['--vapidir', vapi_dir], language: 'vala')
+
 # Add Gressource file (style.css)
 gnome = import('gnome')
 asresources = gnome.compile_resources(
@@ -10,16 +13,33 @@ asresources = gnome.compile_resources(
 # Dependencies for the library
 markdown_dep = [
   dependency('gtk4'),
+  dependency('tree-sitter', static: true),
 ]
 
-# Library gtk4 markdown
-lib_gtk4markdown = static_library('markdown',
+sources = files(
+  'tree-sitter-markdown/src/parser.c',
+  'tree-sitter-markdown/src/scanner.c',
+  'tree-sitter-markdown-inline/src/parser.c',
+  'tree-sitter-markdown-inline/src/scanner.c',
   'Markdown.vala',
   'Table.vala',
   'Gif.vala',
+  'SupraLabel.vala',
+  'LabelExt.vala',
+  'MarkdownEmphasis.vala',
+  'MarkdownNode.vala',
+  'InlineParser.vala',
+  'CodeBlock.vala',
+  'BlockQuote.vala',
+)
+
+# Library gtk4 markdown
+lib_gtk4markdown = static_library('markdown',
+  sources,
   asresources,
   dependencies: markdown_dep,
   c_args: '-w',
+  vala_args: '--pkg=tree-sitter',
   install_dir: [true, true, true],
   install : true)
 

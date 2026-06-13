@@ -1,60 +1,85 @@
+/* ── Misc ────────────────────────────────────────────────────────────────── */
 
-.code_box {
-	background-color: @insensitive_base_color;
-	border : solid 1px @theme_fg_color;
+.markdown-image-error {
+	color: #e05050;
 }
-.code_box textview {
-	margin-top:5px;
-	margin-right:5px;
-	padding-left:10px;
-	background-color: @insensitive_base_color;
-	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.15);
+
+/* ── Code blocks ─────────────────────────────────────────────────────────── */
+
+.markdown-code_box {
+	background-color: mix(@insensitive_base_color, @theme_bg_color, 0.7);
+	border: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.15);
+	border-radius: 8px;
 }
-.line_bar {
-	background-color: mix(@theme_fg_color, @theme_bg_color, 0.09);
-	color: @theme_bg_color;
-	padding-right: 10px;
+
+.markdown-code_box textview {
+	margin-top: 6px;
+	margin-bottom: 6px;
+	margin-right: 8px;
+	padding-left: 12px;
+	background-color: transparent;
+}
+
+.markdown-line_bar {
+	background-color: mix(@theme_fg_color, @theme_bg_color, 0.07);
+	color: mix(@theme_fg_color, @theme_bg_color, 0.45);
+	padding-top: 6px;
+	padding-bottom: 6px;
 	padding-left: 10px;
-	padding-top: 5px;
-	padding-bottom: 5px;
+	padding-right: 10px;
+	border-radius: 7px 0 0 7px;
+	border-right: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.12);
 	border: 0px;
 }
 
-.blockquotes {
-	background-color: @insensitive_base_color;
-	border-left: 7px solid #aaa;
-	padding-top: 10px;
-	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.09);
-	margin-right:-50px;
-	padding-right:50px;
-	padding-bottom: 0px;
-	padding-left : 8px;
+/* ── Block quotes ────────────────────────────────────────────────────────── */
+
+.markdown-blockquote {
+	border-left: 4px solid @theme_selected_bg_color;
+	background-color: mix(@theme_selected_bg_color, @theme_bg_color, 0.08);
+	border-radius: 0 6px 6px 0;
+	/* inner spacing is handled by the content box widget margins */
 }
 
-.table {
-	border: solid 1px @theme_fg_color;
-	box-shadow: 5px 0px 5px 0px rgba(0,0,0,0.15);
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.markdown-table {
+	border-radius: 0px;
+	border: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.18);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
 }
 
-.table .table_label {
-	padding-right: 10px;
-	padding-left: 10px;
-	padding-top: 5px;
-	padding-bottom: 5px;
-	background-color: @insensitive_base_color;
-	border: solid 0.6px @theme_fg_color;
-	color: @theme_fg_color;
-
-}
-
-.table .header_table {
-	color: @theme_fg_color;
+.markdown-table .markdown-header_table {
 	font-weight: bold;
-	padding-right: 20px;
-	padding-left: 20px;
 	padding-top: 10px;
 	padding-bottom: 10px;
-	border: solid 1px @theme_fg_color;
-	background-color: mix(@theme_bg_color, @theme_fg_color, 0.01);
+	padding-left: 20px;
+	padding-right: 20px;
+	background-color: mix(@theme_selected_bg_color, @theme_bg_color, 0.18);
+	border-bottom: 0px solid mix(@theme_selected_bg_color, @theme_bg_color, 0.45);
+	color: @theme_fg_color;
 }
 
+/* even rows */
+.markdown-table .markdown-table_label {
+	padding-top: 7px;
+	padding-bottom: 7px;
+	padding-left: 16px;
+	padding-right: 16px;
+	background-color: mix(@insensitive_base_color, @theme_bg_color, 0.5);
+	border-right: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.09);
+	border-bottom: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.07);
+	color: @theme_fg_color;
+}
+
+/* odd rows */
+.markdown-table .markdown-table_label_alt {
+	padding-top: 7px;
+	padding-bottom: 7px;
+	padding-left: 16px;
+	padding-right: 16px;
+	background-color: mix(@insensitive_base_color, @theme_bg_color, 0.25);
+	border-right: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.09);
+	border-bottom: 1px solid mix(@theme_fg_color, @theme_bg_color, 0.07);
+	color: @theme_fg_color;
+}
