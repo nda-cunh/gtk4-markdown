@@ -1,30 +1,46 @@
 using Gtk;
 
-// Blockquote container. CSS handles visuals (border-left, background, radius);
-// inner content_box uses GTK4 margin properties for spacing so that wrapped-label
-// height is measured against a plain (un-styled) box — avoiding the CSS-padding
-// measurement issue that causes blockquotes to show at minimum height in GTK4.
+// Blockquote rendered as a horizontal box:
+//   [4 px accent bar] [background area > content box with margins]
+//
+// Separating the bar and background into two widgets avoids the GTK4 CSS-padding
+// measurement issue: wrapped Gtk.Labels measure their height against the
+// un-styled content box, so they get the right width before wrapping.
 public class BlockQuote : Gtk.Box {
 	private Gtk.Box _content;
 
 	construct {
-		orientation = Gtk.Orientation.VERTICAL;
-		css_classes = { "markdown-blockquote" };
+		orientation = Gtk.Orientation.HORIZONTAL;
 		halign = Gtk.Align.FILL;
 		hexpand = true;
+		vexpand = false;
 		spacing = 0;
 
-		_content = new Gtk.Box (Gtk.Orientation.VERTICAL, 8) {
+		var bar = new Gtk.Box (Gtk.Orientation.VERTICAL, 0) {
+			css_classes = { "markdown-blockquote-bar" },
+			hexpand = false,
+			vexpand = true,
+		};
+
+		var bg = new Gtk.Box (Gtk.Orientation.VERTICAL, 0) {
+			css_classes = { "markdown-blockquote-bg" },
+			hexpand = true,
+			vexpand = false,
+		};
+
+		_content = new Gtk.Box (Gtk.Orientation.VERTICAL, 6) {
 			halign = Gtk.Align.FILL,
 			hexpand = true,
 			vexpand = false,
-			margin_top = 12,
-			margin_bottom = 12,
-			margin_start = 16,
-			margin_end = 16,
+			margin_top = 10,
+			margin_bottom = 10,
+			margin_start = 14,
+			margin_end = 12,
 		};
-		((Gtk.Box) this).append (_content);
-		_content.set_size_request (500, 200);
+
+		bg.append (_content);
+		((Gtk.Box) this).append (bar);
+		((Gtk.Box) this).append (bg);
 	}
 
 	public BlockQuote () { }

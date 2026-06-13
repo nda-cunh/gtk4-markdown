@@ -164,7 +164,6 @@ public class MarkDown : Gtk.Box {
 			render_pipe_table (node, src);
 			break;
 		case "block_continuation":
-			walk_children (node, src);
 			break;
 		default:
 			break;
@@ -382,9 +381,12 @@ public class MarkDown : Gtk.Box {
 
 	private void render_block_quote (TreeSitter.Node node, string src) throws Error {
 		var bq = new BlockQuote () {
-			margin_top = 4,
-			margin_bottom = 4,
+			margin_top = 6,
+			margin_bottom = 6,
+			hexpand = false,
+			halign = Gtk.Align.START,
 		};
+		bq.set_size_request (500, -1);
 		var old_box = box;
 		box.append (bq);
 		box = bq.content;
@@ -392,13 +394,13 @@ public class MarkDown : Gtk.Box {
 			uint32 n = TreeSitter.node_get_child_count (node);
 			for (uint32 i = 0; i < n; i++) {
 				var child = TreeSitter.node_get_child (node, i);
-				if (TreeSitter.node_get_type (child) != "block_quote_marker")
+				unowned string? ct = TreeSitter.node_get_type (child);
+				if (ct != "block_quote_marker" && ct != "block_continuation")
 					walk_node (child, src);
 			}
 		} finally {
 			box = old_box;
 		}
-		bq.set_size_request (500, 500);
 	}
 
 	private void render_list_item (TreeSitter.Node node, string src) throws Error {
