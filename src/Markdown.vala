@@ -7,13 +7,14 @@ public class MarkDown : Gtk.Box {
 	private unowned Gtk.Box box;
 	private Box general_box;
 	private TreeSitter.Parser ts_parser;
+	private InlineRenderer inline_renderer;
 	private string file_dir = Environment.get_current_dir ();
 
 	construct {
 		anchor = new HashTable<string, Gtk.Widget> (str_hash, str_equal);
 		general_box = new Gtk.Box (Orientation.VERTICAL, 12) {
-			hexpand = true,         // ◄ AJOUTE CETTE LIGNE
-			halign = Align.FILL     // ◄ AJOUTE CETTE LIGNE
+			hexpand = true,
+			halign = Align.FILL
 		};
 
 		box = general_box;
@@ -23,6 +24,7 @@ public class MarkDown : Gtk.Box {
 		base.append (general_box);
 		ts_parser = new TreeSitter.Parser ();
 		ts_parser.set_language (ts_md_lang ());
+		inline_renderer = new InlineRenderer ();
 		hexpand = true;
 		vexpand = true;
 	}
@@ -98,8 +100,8 @@ public class MarkDown : Gtk.Box {
 		base.remove (general_box);
 		general_box = null;
 		general_box = new Gtk.Box (Orientation.VERTICAL, 12) {
-			hexpand = true,         // ◄ AJOUTE CETTE LIGNE
-			halign = Align.FILL     // ◄ AJOUTE CETTE LIGNE
+			hexpand = true,
+			halign = Align.FILL
 		};
 		box = general_box;
 		base.append (general_box);
@@ -114,8 +116,6 @@ public class MarkDown : Gtk.Box {
 	}
 
 	private string node_text (TreeSitter.Node node, string src) {
-		// tree-sitter gives byte offsets; Vala's string[a:b] uses g_utf8_substring
-		// (character offsets), which diverges when src contains non-ASCII characters
 		uint32 len = node.end_byte - node.start_byte;
 		uint8[] buf = new uint8[len + 1];
 		Memory.copy (buf, ((uint8*) src) + node.start_byte, (size_t) len);
@@ -245,8 +245,6 @@ public class MarkDown : Gtk.Box {
 	}
 
 	private void render_paragraph (TreeSitter.Node node, string src) throws Error {
-		// tree-sitter-markdown only parses block structure; inline nodes have no
-		// named children — scan the raw inline text for image syntax instead
 		uint32 n = TreeSitter.node_get_child_count (node);
 		for (uint32 i = 0; i < n; i++) {
 			var child = TreeSitter.node_get_child (node, i);
@@ -262,7 +260,7 @@ public class MarkDown : Gtk.Box {
 	// Byte-level scan for standalone image syntax ![alt](url).
 	// All delimiters are ASCII so byte offsets equal character offsets for them.
 	private bool parse_image_from_text (string raw) throws Error {
-		int len = raw.length; // strlen — byte count
+		int len = raw.length;
 		int i = 0;
 		while (i < len && (raw[i] == ' ' || raw[i] == '\n' || raw[i] == '\r' || raw[i] == '\t'))
 			i++;
@@ -391,7 +389,6 @@ public class MarkDown : Gtk.Box {
 			else if (ct == "task_list_marker_unchecked") { is_task = true; }
 			else if (ct.has_prefix ("list_marker")) {
 				var m = node_text (child, src).strip ();
-				// Ordered list markers keep their text (e.g. "1.")
 				if (m != "-" && m != "+" && m != "*")
 					marker = m;
 			}
@@ -551,117 +548,22 @@ public class MarkDown : Gtk.Box {
 		}
 	}
 
-	private void render_inline_node (MDNode node, StringBuilder sb, ref List<MarkdownEmphasis> list) {
-		int begin, end;
-		if (node is MDText) {
-			sb.append (((MDText) node).text);
-		} else if (node is MDParagraph) {
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			if (((MDParagraph) node).is_end == false)
-				sb.append ("\n");
-		} else if (node is MDBold) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BOLD, begin, end));
-		} else if (node is MDItalic) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.ITALIC, begin, end));
-		} else if (node is MDStrike) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.STRIKE, begin, end));
-		} else if (node is MDUnderline) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.UNDERLINE, begin, end));
-		} else if (node is MDInlineCode) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BLOCK_CODE, begin, end));
-		} else if (node is MDSuperscript) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.SUPERSCRIPT, begin, end));
-		} else if (node is MDSubscript) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.SUBSCRIPT, begin, end));
-		} else if (node is MDItalicBold) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.BOLD, begin, end));
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.ITALIC, begin, end));
-		} else if (node is MDLink) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasisLink (begin, end, ((MDLink) node).url));
-		} else if (node is MDHeader) {
-			sb.append ("\n");
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasisHeader (begin, end, ((MDHeader) node).level));
-			sb.append ("\n");
-		} else if (node is MDLineBreak) {
-			sb.append ("\n");
-		} else if (node is MDhighlight) {
-			begin = (int) sb.len;
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-			end = (int) sb.len;
-			list.append (new MarkdownEmphasis (MarkdownEmphasis.Type.HIGHLIGHT, begin, end));
-		} else if (node is MDListNode) {
-			if (((MDListNode) node).list_type == MDListNode.ListType.ORDERED)
-				sb.append ("1. ");
-			else
-				sb.append ("• ");
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-		} else if (node is MDDocument) {
-			foreach (unowned var child in node.children)
-				render_inline_node (child, sb, ref list);
-		}
+	public SupraLabel create_label_markdown (string text, bool is_table) {
+		return create_supra_label (text);
 	}
 
 	private SupraLabel create_supra_label (string text, int heading_level = 0) {
-		var parser = new MarkdownParser ();
-		var doc = parser.parse (text);
-		var emph_list = new List<MarkdownEmphasis> ();
-		var sb = new StringBuilder ();
-		render_inline_node (doc, sb, ref emph_list);
+		string plain_text;
+		List<MarkdownEmphasis> emph_list;
+		inline_renderer.parse (text, out plain_text, out emph_list);
 
-		var label = new SupraLabel (sb.str);
+		var label = new SupraLabel (plain_text);
 
 		if (heading_level > 0)
 			LabelExt.set_size (label, 0, int.MAX, get_inline_size_for_level (heading_level));
 
 		foreach (unowned var attr in emph_list) {
 			switch (attr.type) {
-			case MarkdownEmphasis.Type.HEADER:
-				var h = (MarkdownEmphasisHeader) attr;
-				LabelExt.set_size (label, attr.start_index, attr.end_index, get_inline_size_for_level (h.header_level));
-				break;
 			case MarkdownEmphasis.Type.BOLD:
 				LabelExt.add_bold (label, attr.start_index, attr.end_index);
 				break;
