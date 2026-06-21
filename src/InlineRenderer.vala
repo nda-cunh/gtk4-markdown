@@ -140,12 +140,22 @@ public class InlineRenderer {
 		uint32 content_start = node.start_byte;
 		uint32 content_end = node.end_byte;
 
+		// Advance past consecutive opening delimiters.
 		for (uint32 i = 0; i < n; i++) {
 			var child = TreeSitter.node_get_child (node, i);
-			if (TreeSitter.node_get_type (child) == delimiter_type) {
-				if (child.start_byte <= content_start) content_start = child.end_byte;
-				else if (child.end_byte >= content_end)  content_end = child.start_byte;
-			}
+			if (TreeSitter.node_get_type (child) == delimiter_type && child.start_byte == content_start)
+				content_start = child.end_byte;
+			else
+				break;
+		}
+
+		// Retreat past consecutive closing delimiters.
+		for (int i = (int) n - 1; i >= 0; i--) {
+			var child = TreeSitter.node_get_child (node, (uint32) i);
+			if (TreeSitter.node_get_type (child) == delimiter_type && child.end_byte == content_end)
+				content_end = child.start_byte;
+			else
+				break;
 		}
 
 		int begin = (int) sb.len;

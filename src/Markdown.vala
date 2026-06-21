@@ -115,6 +115,33 @@ public class MarkDown : Gtk.Box {
 		walk_node (tree.get_root_node (), text_md);
 	}
 
+	// Extract text from an inline node, skipping block_continuation children ("> " markers).
+	private string inline_text (TreeSitter.Node node, string src) {
+		uint32 n = TreeSitter.node_get_child_count (node);
+		if (n == 0) return node_text (node, src);
+		var sb = new StringBuilder ();
+		uint32 pos = node.start_byte;
+		for (uint32 i = 0; i < n; i++) {
+			var child = TreeSitter.node_get_child (node, i);
+			if (TreeSitter.node_get_type (child) == "block_continuation") {
+				if (child.start_byte > pos)
+					append_bytes (sb, src, pos, child.start_byte);
+				pos = child.end_byte;
+			}
+		}
+		if (pos < node.end_byte)
+			append_bytes (sb, src, pos, node.end_byte);
+		return sb.str;
+	}
+
+	private void append_bytes (StringBuilder sb, string src, uint32 start, uint32 end_pos) {
+		if (end_pos <= start) return;
+		uint32 len = end_pos - start;
+		uint8[] buf = new uint8[len + 1];
+		Memory.copy (buf, ((uint8*) src) + start, (size_t) len);
+		sb.append (((string) buf).dup ());
+	}
+
 	private string node_text (TreeSitter.Node node, string src) {
 		uint32 len = node.end_byte - node.start_byte;
 		uint8[] buf = new uint8[len + 1];
@@ -246,15 +273,18 @@ public class MarkDown : Gtk.Box {
 
 	private void render_paragraph (TreeSitter.Node node, string src) throws Error {
 		uint32 n = TreeSitter.node_get_child_count (node);
+		var sb = new StringBuilder ();
 		for (uint32 i = 0; i < n; i++) {
 			var child = TreeSitter.node_get_child (node, i);
-			if (TreeSitter.node_get_type (child) == "inline") {
-				if (parse_image_from_text (node_text (child, src)))
-					return;
-				break;
+			unowned string? ct = TreeSitter.node_get_type (child);
+			if (ct == "inline") {
+				if (sb.len > 0) sb.append_c ('\n');
+				sb.append (inline_text (child, src));
 			}
 		}
-		append_text (node_text (node, src));
+		string text = sb.len > 0 ? sb.str : node_text (node, src);
+		if (!parse_image_from_text (text))
+			append_text (text);
 	}
 
 	// Byte-level scan for standalone image syntax ![alt](url){width=N height=N}.
